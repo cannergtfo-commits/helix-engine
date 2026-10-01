@@ -38,6 +38,8 @@ engine.start();
 
 A scene is version `1` JSON: gravity, fog, and entities with transform plus components (`mesh`, `light`, `camera`, `collider`, `rigidbody`, `script`).
 
+Helix keeps the world in a document the renderer only draws. Agents build houses with `helix.build([...])` — rooms, walls, doors, windows, roofs, and furniture — without clicking. A batch commits once, or rolls back on collision. `helix.world()` is the room tree, `helix.validate()` lists overlaps and missing doors, and `helix.benchmark()` constructs a cottage headlessly and checks that the same plan hashes the same twice.
+
 Helix is a studio for chain games. Stamp a gate, loot drop, currency purse, vendor, or skin. Play checks the studio wallet and never sends a transaction. Bots do the same with `helix.run([{ op: "rule", role: "gate", token: "KEY", x: 0, z: -3 }, { op: "grant", token: "KEY" }])`. `helix.scene()` returns each entity's rule and the wallet. A real contract can be passed as `contract`, `standard`, and `chain` instead of a sample symbol.
 
 Bots build through `window.helix` on the studio page. `helix.catalog()`, `helix.find("knight")`, and `helix.scene()` are the reads. `helix.run([{ op: "place", id: "gate", asset: "knight", x: 2, z: -2 }])` is the write. The same contract is at `/agent/schema.json`. A same-origin frame can post `{ type: "helix.run", id, commands }` and listen for `{ type: "helix.result" }`. Ground, camera, and lights stay. One batch is one undo step.

@@ -17,6 +17,7 @@ import {
 import { applyClip, bindChainToSelection, chainProp, entityFromDrag, placeInScene } from "./place";
 import { ModelShelf } from "./ModelShelf";
 import { Director } from "./Director";
+import { BuildCard } from "@/build/BuildCard";
 import { Rules } from "./Rules";
 import { AgentCard } from "@/agent/AgentCard";
 import { shortAddress, useWallet } from "./wallet";
@@ -74,6 +75,7 @@ export function Library({ onPlaced }: { onPlaced?: () => void }) {
   const assets = useWallet((state) => state.assets);
   return (
     <div className="min-h-0 flex-1 space-y-4 overflow-auto px-2 py-3">
+      <BuildCard />
       <Rules />
       <Director />
       <AgentCard />

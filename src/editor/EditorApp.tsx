@@ -722,7 +722,7 @@ function Guide() {
         <li>Stamp a gate, loot, purse, vendor, or skin in the library.</li>
         <li>Grant the token, or claim it on Chain. That only fills the studio wallet.</li>
         <li>Press Play. W drives, A turns left, D turns right. Walk into the rule.</li>
-        <li>Bots use the same rules: helix.run with op rule and op grant.</li>
+        <li>Or press Build the cottage. Agents use helix.build and helix.world for the same plan, without clicking.</li>
       </ol>
       <p>Studio version {HELIX_VERSION}. Samples never leave this browser and never send a transaction.</p>
       <pre className="overflow-auto rounded-md bg-bg p-2 font-mono text-xs text-fg">{`api.rotate(0, 40 * api.dt, 0);

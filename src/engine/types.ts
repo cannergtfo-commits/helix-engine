@@ -22,6 +22,31 @@ export type TokenStandard = "erc20" | "erc721" | "erc1155";
 
 export type ChainRole = "collectible" | "gate" | "currency" | "skin" | "vendor";
 
+export type BuildKind =
+  | "building"
+  | "room"
+  | "wall"
+  | "exterior-wall"
+  | "interior-wall"
+  | "door"
+  | "exterior-door"
+  | "window"
+  | "floor"
+  | "roof"
+  | "furniture";
+
+export type BuildComponent = {
+  type: "build";
+  kind: BuildKind;
+  /** Extra labels such as bedroom, kitchen, brick. Agents may add their own. */
+  tags: string[];
+  parent: string | null;
+  material: string;
+  /** Metres. Walls use x as length, y as height, z as thickness. */
+  size: Vec3;
+  cost: number;
+};
+
 export type MeshComponent = {
   type: "mesh";
   primitive: Primitive;
@@ -111,7 +136,8 @@ export type Component =
   | ColliderComponent
   | ScriptComponent
   | CharacterComponent
-  | ChainComponent;
+  | ChainComponent
+  | BuildComponent;
 
 export type EntityData = {
   id: string;
