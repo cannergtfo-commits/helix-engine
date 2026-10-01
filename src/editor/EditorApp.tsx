@@ -30,6 +30,7 @@ import {
   HELIX_VERSION,
   SCENE_STORAGE_KEY,
   cameraEntity,
+  characterEntity,
   colliderFor,
   createStarterScene,
   downloadScene,
@@ -47,11 +48,15 @@ import {
 } from "@/engine";
 import { Viewport } from "./Viewport";
 import { useEditor } from "./store";
+import { ChainDesk, ConceptBoard, ExtraFields, Library, StoryBoard, WorkspaceBar, type Workspace } from "@/studio/StudioPanels";
+import { useWallet } from "@/studio/wallet";
 
-type MobileTab = "view" | "scene" | "inspect" | "guide";
+type MobileTab = "view" | "scene" | "assets" | "inspect";
 
 export function EditorApp({ autoPlay = false }: { autoPlay?: boolean }) {
   const [tab, setTab] = useState<MobileTab>("view");
+  const [workspace, setWorkspace] = useState<Workspace>("design");
+  const [rail, setRail] = useState<"assets" | "scene">("assets");
   const [bottom, setBottom] = useState<"console" | "guide">("console");
   const fileRef = useRef<HTMLInputElement>(null);
   const hydrated = useEditor((state) => state.hydrated);
@@ -60,6 +65,7 @@ export function EditorApp({ autoPlay = false }: { autoPlay?: boolean }) {
 
   useEffect(() => {
     useEditor.getState().hydrate();
+    useWallet.getState().hydrate();
   }, []);
 
   useEffect(() => {
@@ -88,6 +94,7 @@ export function EditorApp({ autoPlay = false }: { autoPlay?: boolean }) {
         event.preventDefault();
         if (state.mode === "edit") state.play();
         else state.setPaused(!state.paused);
+        setWorkspace("design");
       }
       if (state.mode === "play") return;
       if (meta && event.code === "KeyZ") {
@@ -127,7 +134,8 @@ export function EditorApp({ autoPlay = false }: { autoPlay?: boolean }) {
 
   return (
     <div className="flex h-dvh flex-col bg-bg text-fg">
-      <Toolbar onImport={() => fileRef.current?.click()} />
+      <Toolbar onImport={() => fileRef.current?.click()} onPlay={() => setWorkspace("design")} />
+      <WorkspaceBar value={workspace} onChange={setWorkspace} />
       <input
         ref={fileRef}
         type="file"
@@ -138,15 +146,29 @@ export function EditorApp({ autoPlay = false }: { autoPlay?: boolean }) {
           event.target.value = "";
         }}
       />
-      <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-        <aside className={`${tab === "scene" ? "flex" : "hidden"} min-h-0 w-full flex-col bg-surface md:flex md:w-60 md:shrink-0 md:border-r md:border-line`}>
+      <div className={workspace === "design" ? "flex min-h-0 flex-1 flex-col md:flex-row" : "hidden"}>
+        <aside className={`${tab === "scene" ? "flex" : "hidden"} min-h-0 w-full flex-col bg-surface md:hidden`}>
           <Hierarchy />
+        </aside>
+        <aside className={`${tab === "assets" ? "flex" : "hidden"} min-h-0 w-full flex-col bg-surface md:hidden`}>
+          <Library onPlaced={() => setTab("view")} />
+        </aside>
+        <aside className="hidden min-h-0 w-72 shrink-0 flex-col border-r border-line bg-surface md:flex">
+          <div className="flex h-10 shrink-0 items-center gap-1 border-b border-line px-2">
+            <button type="button" className={rail === "assets" ? "h-8 rounded-md bg-raised px-3 text-sm text-fg" : "h-8 px-3 text-sm text-muted"} onClick={() => setRail("assets")}>
+              Library
+            </button>
+            <button type="button" className={rail === "scene" ? "h-8 rounded-md bg-raised px-3 text-sm text-fg" : "h-8 px-3 text-sm text-muted"} onClick={() => setRail("scene")}>
+              Scene
+            </button>
+          </div>
+          {rail === "scene" ? <Hierarchy /> : <Library />}
         </aside>
         <div className={`${tab === "view" ? "flex" : "hidden"} min-h-0 min-w-0 flex-1 flex-col md:flex`}>
           <div className="min-h-0 flex-1">
             <Viewport />
           </div>
-          <section className="hidden h-40 shrink-0 flex-col border-t border-line bg-surface md:flex">
+          <section className="hidden h-36 shrink-0 flex-col border-t border-line bg-surface md:flex">
             <div className="flex h-8 items-center gap-1 border-b border-line px-2">
               <TabButton active={bottom === "console"} onClick={() => setBottom("console")}>
                 Console
@@ -161,17 +183,30 @@ export function EditorApp({ autoPlay = false }: { autoPlay?: boolean }) {
         <aside className={`${tab === "inspect" ? "flex" : "hidden"} min-h-0 w-full flex-col bg-surface md:flex md:w-72 md:shrink-0 md:border-l md:border-line`}>
           <Inspector />
         </aside>
-        <section className={`${tab === "guide" ? "block" : "hidden"} min-h-0 flex-1 overflow-auto bg-surface md:hidden`}>
-          <Guide />
-        </section>
       </div>
-      <nav className="grid h-12 shrink-0 grid-cols-4 border-t border-line bg-surface md:hidden">
+      {workspace === "story" ? (
+        <div className="min-h-0 flex-1 overflow-auto bg-bg">
+          <StoryBoard />
+        </div>
+      ) : null}
+      {workspace === "concept" ? (
+        <div className="min-h-0 flex-1 overflow-auto bg-bg">
+          <ConceptBoard />
+        </div>
+      ) : null}
+      {workspace === "chain" ? (
+        <div className="min-h-0 flex-1 overflow-auto bg-bg">
+          <ChainDesk onPlaced={() => setWorkspace("design")} />
+        </div>
+      ) : null}
+      {workspace === "design" ? (
+        <nav className="grid h-12 shrink-0 grid-cols-4 border-t border-line bg-surface md:hidden">
           {(
             [
               ["view", "View"],
               ["scene", "Scene"],
+              ["assets", "Assets"],
               ["inspect", "Inspect"],
-              ["guide", "Guide"],
             ] as const
           ).map(([id, label]) => (
             <button
@@ -184,11 +219,12 @@ export function EditorApp({ autoPlay = false }: { autoPlay?: boolean }) {
             </button>
           ))}
         </nav>
+      ) : null}
     </div>
   );
 }
 
-function Toolbar({ onImport }: { onImport: () => void }) {
+function Toolbar({ onImport, onPlay }: { onImport: () => void; onPlay: () => void }) {
   const mode = useEditor((state) => state.mode);
   const paused = useEditor((state) => state.paused);
   const tool = useEditor((state) => state.tool);
@@ -204,7 +240,7 @@ function Toolbar({ onImport }: { onImport: () => void }) {
         <span className="grid h-7 w-7 place-items-center rounded-md bg-accent text-xs font-semibold text-accent-ink">H</span>
         <div className="leading-tight">
           <div className="text-sm font-semibold tracking-wide">Helix</div>
-          <div className="font-mono text-xs text-muted">{HELIX_VERSION}</div>
+          <div className="text-xs text-muted">Studio</div>
         </div>
       </div>
       <input
@@ -246,6 +282,7 @@ function Toolbar({ onImport }: { onImport: () => void }) {
             const state = useEditor.getState();
             if (state.mode === "edit") state.play();
             else state.setPaused(!state.paused);
+            onPlay();
           }}
         >
           {playing ? <Pause className="size-4" /> : <Play className="size-4" />}
@@ -293,11 +330,13 @@ function AddMenu() {
         <AddItem icon={<Circle className="size-4" />} label="Sphere" onClick={() => add(primitiveEntity("sphere"))} />
         <AddItem icon={<Cylinder className="size-4" />} label="Cylinder" onClick={() => add(primitiveEntity("cylinder"))} />
         <AddItem icon={<Cone className="size-4" />} label="Cone" onClick={() => add(primitiveEntity("cone"))} />
+        <AddItem label="Warden" onClick={() => add(characterEntity("warden", { player: true }))} />
+        <AddItem label="Relay" onClick={() => add(characterEntity("relay", { player: false, clip: "wave" }))} />
         <AddItem label="Rover" onClick={() => add(playerEntity())} />
         <AddItem icon={<SunMedium className="size-4" />} label="Sun" onClick={() => add(lightEntity("directional"))} />
         <AddItem icon={<Lightbulb className="size-4" />} label="Point light" onClick={() => add(lightEntity("point"))} />
         <AddItem icon={<Camera className="size-4" />} label="Camera" onClick={() => add(cameraEntity())} />
-        <AddItem label="Demo scene" onClick={() => useEditor.getState().loadDoc(createStarterScene())} />
+        <AddItem label="Relic hall" onClick={() => useEditor.getState().loadDoc(createStarterScene())} />
         <AddItem label="Empty scene" onClick={() => useEditor.getState().loadDoc(emptyScene())} />
       </div>
     </details>
@@ -322,7 +361,7 @@ function Hierarchy() {
   const selectedId = useEditor((state) => state.selectedId);
   const editing = useEditor((state) => state.mode === "edit");
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="flex min-h-0 flex-1 flex-col">
       <header className="flex h-8 items-center justify-between px-3 text-xs tracking-wide text-muted uppercase">
         Hierarchy
         <span>{entities.length}</span>
@@ -445,7 +484,10 @@ function ComponentCard({
           Remove
         </button>
       </header>
-      {component.type === "mesh" ? (
+      {component.type === "mesh" && component.src ? (
+        <p className="text-xs text-muted">Imported model. Scale it with the gizmo. Color sliders do not tint imported materials.</p>
+      ) : null}
+      {component.type === "mesh" && !component.src ? (
         <div className="space-y-2">
           <label className="block text-xs text-muted">
             Primitive
@@ -531,6 +573,7 @@ function ComponentCard({
           ) : null}
         </div>
       ) : null}
+      <ExtraFields component={component} editing={editing} patch={patch} />
       {component.type === "collider" ? (
         <p className="text-xs text-muted">{component.isStatic ? "Static" : "Dynamic"} {component.shape} collider</p>
       ) : null}
@@ -671,14 +714,15 @@ function Console() {
 function Guide() {
   return (
     <div className="space-y-3 px-3 py-3 text-sm text-muted">
-      <p className="text-fg">Helix is a component scene engine. Build in the editor, or drive the same document from code.</p>
+      <p className="text-fg">Helix Studio builds a playable room. The library starts with free CC0 models you can drop beside the hall.</p>
       <ol className="list-decimal space-y-1 pl-4">
-        <li>Select the rover and press Play. W drives, A turns left, D turns right.</li>
-        <li>Stop restores the scene. Crates fall only while playing.</li>
-        <li>Add a mesh, a collider, and a rigidbody to make something physical.</li>
-        <li>Script behaviors: spin, bob, orbit, player, or custom.</li>
-        <li>Export writes a <span className="font-mono text-fg">.helix.json</span> scene others can import.</li>
+        <li>Search the model shelf for a dragon, cottage, or sword. Drag it onto the floor, or tap Add.</li>
+        <li>Drop this set places a handful beside the hall so you can orbit them.</li>
+        <li>Select a block character and apply a clip from Field or Ritual.</li>
+        <li>Chain: claim the Courtyard Key, then Play. W drives, A turns left, D turns right.</li>
+        <li>Touch the brass relic to collect it. The archive door opens only if the wallet holds the key.</li>
       </ol>
+      <p>Studio version {HELIX_VERSION}. Samples never leave this browser and never send a transaction.</p>
       <pre className="overflow-auto rounded-md bg-bg p-2 font-mono text-xs text-fg">{`api.rotate(0, 40 * api.dt, 0);
 api.translate(0, Math.sin(api.time) * api.dt, 0);`}</pre>
       <p>

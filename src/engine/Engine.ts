@@ -1,8 +1,13 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { TransformControls } from "three/addons/controls/TransformControls.js";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { clone as cloneSkinned } from "three/addons/utils/SkeletonUtils.js";
+import { buildCharacter, poseCharacter, type CharacterRig } from "./characters";
 import { integrate, type SimBody } from "./physics";
 import type {
+  ChainEvent,
+  ChainQuery,
   ColliderComponent,
   Component,
   EntityData,
@@ -46,6 +51,8 @@ type Hooks = {
   onGesture: (phase: "start" | "end") => void;
   onSelect: (id: string | null) => void;
   onStats: (stats: EngineStats) => void;
+  onChain?: (event: ChainEvent) => void;
+  holdsToken?: (query: ChainQuery) => boolean;
 };
 
 type Runtime = {
@@ -60,14 +67,24 @@ type Runtime = {
   orbitRadius: number;
   compiled?: (api: ScriptApi) => void;
   scriptFailed: boolean;
+  rig: CharacterRig | null;
+  gem: THREE.Object3D | null;
+  consumed: boolean;
+  opened: boolean;
+  chainNoted: boolean;
+  baseY?: number;
+  loadToken: number;
+  mixer: THREE.AnimationMixer | null;
 };
 
 function signature(entity: EntityData): string {
   return entity.components
     .map((component) => {
-      if (component.type === "mesh") return `mesh:${component.primitive}`;
+      if (component.type === "mesh") return `mesh:${component.src ?? component.primitive}`;
       if (component.type === "light") return `light:${component.light}`;
       if (component.type === "camera") return "camera";
+      if (component.type === "character") return `character:${component.kit}`;
+      if (component.type === "chain") return `chain:${component.role}`;
       return component.type;
     })
     .join("|");
@@ -170,6 +187,8 @@ export class HelixEngine {
   private readonly helper: THREE.Object3D;
   private readonly timer = new THREE.Timer();
   private readonly geos = new Map<Primitive, THREE.BufferGeometry>();
+  private readonly gltfLoader = new GLTFLoader();
+  private readonly modelCache = new Map<string, Promise<{ template: THREE.Object3D; clips: THREE.AnimationClip[] }>>();
   private readonly runtimes = new Map<string, Runtime>();
   private readonly selection: THREE.BoxHelper;
   private readonly grid: THREE.GridHelper;
@@ -194,6 +213,7 @@ export class HelixEngine {
   private pointerY = 0;
   private accumulator = 0;
   private simTime = 0;
+  private animTime = 0;
   private playerId: string | null = null;
   private playerYaw = 0;
   private playerSpeed = 0;
@@ -389,6 +409,105 @@ export class HelixEngine {
     }
   }
 
+  private poseCharacters() {
+    for (const runtime of this.runtimes.values()) {
+      if (runtime.gem) runtime.gem.rotation.y = this.animTime * 1.5;
+      if (!runtime.rig) continue;
+      const entity = runtime.root.userData.entity as EntityData | undefined;
+      if (!entity) continue;
+      const character = findComponent(entity, "character");
+      if (!character) continue;
+      let clip = character.clip;
+      if (this.mode === "play" && runtime.id === this.playerId) {
+        clip = Math.abs(this.playerSpeed) > 0.35 ? "walk" : "idle";
+      }
+      poseCharacter(runtime.rig, clip, this.animTime);
+      let accent = character.accent;
+      const chain = findComponent(entity, "chain");
+      if (
+        this.mode === "play" &&
+        chain?.role === "skin" &&
+        this.hooks.holdsToken?.({
+          chain: chain.chain,
+          standard: chain.standard,
+          contract: chain.contract,
+          tokenId: chain.tokenId,
+          amount: chain.amount || 1,
+        })
+      ) {
+        accent = chain.tint;
+      }
+      runtime.root.traverse((obj) => {
+        if (obj instanceof THREE.Mesh && obj.userData.accent && obj.material instanceof THREE.MeshStandardMaterial) {
+          obj.material.color.set(accent);
+        }
+      });
+    }
+  }
+
+  private settleChain() {
+    if (!this.playerId) return;
+    const player = this.runtimes.get(this.playerId);
+    if (!player) return;
+    for (const runtime of this.runtimes.values()) {
+      if (runtime.id === this.playerId) continue;
+      const entity = runtime.root.userData.entity as EntityData | undefined;
+      const chain = entity ? findComponent(entity, "chain") : undefined;
+      if (!chain || chain.role === "skin") continue;
+      const dx = runtime.root.position.x - player.root.position.x;
+      const dz = runtime.root.position.z - player.root.position.z;
+      const dist = Math.hypot(dx, dz);
+      if (chain.role === "gate") {
+        if (runtime.opened) {
+          const base = runtime.baseY ?? runtime.root.position.y;
+          runtime.baseY = base;
+          const target = base + 2.6;
+          runtime.root.position.y += (target - runtime.root.position.y) * 0.12;
+          continue;
+        }
+        const query = {
+          chain: chain.chain,
+          standard: chain.standard,
+          contract: chain.contract,
+          tokenId: chain.tokenId,
+          amount: chain.amount || 1,
+        };
+        if (dist < 2.6) {
+          if (this.hooks.holdsToken?.(query)) {
+            runtime.opened = true;
+            runtime.baseY = runtime.root.position.y;
+            const body = this.bodies.find((item) => item.id === runtime.id);
+            if (body) body.pos.y = -40;
+            this.hooks.onChain?.({ type: "unlock", id: runtime.id, label: chain.label });
+          } else if (!runtime.chainNoted) {
+            runtime.chainNoted = true;
+            this.hooks.onChain?.({ type: "locked", id: runtime.id, label: chain.label, symbol: chain.symbol });
+          }
+        } else {
+          runtime.chainNoted = false;
+        }
+        continue;
+      }
+      if (runtime.consumed || dist > 1.6) continue;
+      runtime.consumed = true;
+      runtime.root.visible = false;
+      const body = this.bodies.find((item) => item.id === runtime.id);
+      if (body) body.pos.y = -40;
+      this.hooks.onChain?.({
+        type: "pickup",
+        id: runtime.id,
+        label: chain.label,
+        symbol: chain.symbol,
+        role: chain.role,
+        chain: chain.chain,
+        standard: chain.standard,
+        contract: chain.contract,
+        tokenId: chain.tokenId,
+        amount: chain.amount || 1,
+      });
+    }
+  }
+
   setPaused(paused: boolean) {
     this.paused = paused;
   }
@@ -404,6 +523,21 @@ export class HelixEngine {
     this.orbit.target.copy(target);
     this.editorCamera.position.copy(target).add(new THREE.Vector3(4.2, 2.6, 5.4));
     this.orbit.update();
+  }
+
+  groundPoint(clientX: number, clientY: number) {
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    if (rect.width < 2 || rect.height < 2) return null;
+    this.pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+    this.pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+    this.raycaster.setFromCamera(this.pointer, this.editorCamera);
+    const hit = new THREE.Vector3();
+    const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+    if (!this.raycaster.ray.intersectPlane(plane, hit)) return null;
+    return {
+      x: Math.max(-18, Math.min(18, hit.x)),
+      z: Math.max(-18, Math.min(18, hit.z)),
+    };
   }
 
   dispose() {
@@ -447,6 +581,9 @@ export class HelixEngine {
         steps += 1;
       }
     }
+    this.animTime += dt;
+    for (const runtime of this.runtimes.values()) runtime.mixer?.update(dt);
+    this.poseCharacters();
     this.syncHelpers();
     const camera = this.activeCamera();
     this.renderer.render(this.scene, camera);
@@ -487,12 +624,13 @@ export class HelixEngine {
       this.writeBodies();
     }
     this.updateChase(dt);
+    this.settleChain();
   }
 
   private runScripts(dt: number) {
     for (const runtime of this.runtimes.values()) {
       const script = runtime.script;
-      if (!script || script.behavior === "player") continue;
+      if (!script || script.behavior === "player" || runtime.consumed) continue;
       const root = runtime.root;
       if (script.behavior === "spin") {
         root.rotation.y += script.speed * DEG * dt;
@@ -617,6 +755,10 @@ export class HelixEngine {
       runtime.orbitAngle = Math.atan2(runtime.root.position.x, runtime.root.position.z);
       runtime.scriptFailed = false;
       runtime.compiled = undefined;
+      runtime.consumed = false;
+      runtime.opened = false;
+      runtime.chainNoted = false;
+      runtime.baseY = undefined;
       if (runtime.script?.behavior === "custom") {
         try {
           runtime.compiled = new Function("api", `"use strict";\n${runtime.script.source}`) as (api: ScriptApi) => void;
@@ -633,7 +775,10 @@ export class HelixEngine {
           this.playerYaw = runtime.root.rotation.y;
           this.playerMax = runtime.script.speed;
           this.playerTurn = runtime.script.turnRate;
-          const half = scaledHalf(entity, vec3(0.38, 0.32, 0.58));
+          const character = findComponent(entity, "character");
+          const half = character
+            ? scaledHalf(entity, vec3(0.32, character.kit === "relay" ? 0.96 : 0.9, 0.26))
+            : scaledHalf(entity, vec3(0.38, 0.32, 0.58));
           this.bodies.push({
             id: entity.id,
             pos: {
@@ -727,6 +872,13 @@ export class HelixEngine {
         orbitAngle: 0,
         orbitRadius: 1,
         scriptFailed: false,
+        rig: null,
+        gem: null,
+        consumed: false,
+        opened: false,
+        chainNoted: false,
+        loadToken: 0,
+        mixer: null,
       };
       this.runtimes.set(entity.id, runtime);
     }
@@ -747,9 +899,19 @@ export class HelixEngine {
 
   private buildContent(runtime: Runtime, entity: EntityData) {
     const meshComponent = findComponent(entity, "mesh");
+    const character = findComponent(entity, "character");
     const light = findComponent(entity, "light");
     const camera = findComponent(entity, "camera");
-    if (meshComponent?.primitive === "rover") {
+    const chain = findComponent(entity, "chain");
+    if (character) {
+      const built = buildCharacter(character.kit, character.accent);
+      tag(built.group, entity.id);
+      runtime.root.add(built.group);
+      runtime.rig = built.rig;
+      runtime.disposables.push(...built.disposables);
+    } else if (meshComponent?.src) {
+      this.mountModel(runtime, entity, meshComponent.src, meshComponent.fit || 1.2);
+    } else if (meshComponent?.primitive === "rover") {
       const built = buildRover();
       tag(built.group, entity.id);
       runtime.root.add(built.group);
@@ -769,6 +931,20 @@ export class HelixEngine {
       runtime.root.add(mesh);
       runtime.disposables.push(material);
     }
+    if (chain && (chain.role === "collectible" || chain.role === "currency")) {
+      const geo = new THREE.OctahedronGeometry(0.12);
+      const material = new THREE.MeshStandardMaterial({
+        color: "#e8a54b",
+        metalness: 0.65,
+        roughness: 0.28,
+      });
+      const gem = new THREE.Mesh(geo, material);
+      gem.position.y = 0.72;
+      gem.userData.entityId = entity.id;
+      runtime.root.add(gem);
+      runtime.gem = gem;
+      runtime.disposables.push(geo, material);
+    }
     if (light) runtime.root.add(this.makeLight(light, entity.id, runtime));
     if (camera) {
       const cam = new THREE.PerspectiveCamera(camera.fov, this.width / this.height, camera.near, camera.far);
@@ -776,7 +952,7 @@ export class HelixEngine {
       cam.userData.entityId = entity.id;
       runtime.root.add(cam);
     }
-    if (!meshComponent) {
+    if (!meshComponent && !character) {
       const proxy = new THREE.Mesh(
         light ? new THREE.OctahedronGeometry(0.18) : new THREE.BoxGeometry(0.22, 0.16, 0.28),
         new THREE.MeshBasicMaterial({ color: light ? light.color : "#e8a54b" }),
@@ -827,7 +1003,7 @@ export class HelixEngine {
 
   private syncMaterials(runtime: Runtime, entity: EntityData) {
     const meshComponent = findComponent(entity, "mesh");
-    if (meshComponent && meshComponent.primitive !== "rover") {
+    if (meshComponent && meshComponent.primitive !== "rover" && !meshComponent.src) {
       runtime.root.traverse((obj) => {
         if (obj instanceof THREE.Mesh && obj.material instanceof THREE.MeshStandardMaterial && !obj.userData.proxy) {
           obj.material.color.set(meshComponent.color);
@@ -870,10 +1046,82 @@ export class HelixEngine {
     return geo;
   }
 
+  private loadModel(src: string, fit: number) {
+    const key = `${src}|${fit}`;
+    const cached = this.modelCache.get(key);
+    if (cached) return cached;
+    const pending = new Promise<{ template: THREE.Object3D; clips: THREE.AnimationClip[] }>((resolve, reject) => {
+      this.gltfLoader.load(
+        src,
+        (gltf) => {
+          const root = gltf.scene;
+          root.updateMatrixWorld(true);
+          const box = new THREE.Box3().setFromObject(root);
+          const size = box.getSize(new THREE.Vector3());
+          const maxDim = Math.max(size.x, size.y, size.z, 0.001);
+          root.scale.multiplyScalar(fit / maxDim);
+          root.updateMatrixWorld(true);
+          const fitted = new THREE.Box3().setFromObject(root);
+          root.position.sub(fitted.getCenter(new THREE.Vector3()));
+          root.traverse((obj) => {
+            if (obj instanceof THREE.Mesh) {
+              obj.castShadow = true;
+              obj.receiveShadow = true;
+            }
+          });
+          resolve({ template: root, clips: gltf.animations });
+        },
+        undefined,
+        (error) => {
+          this.modelCache.delete(key);
+          reject(error instanceof Error ? error : new Error("Could not load model"));
+        },
+      );
+    });
+    this.modelCache.set(key, pending);
+    return pending;
+  }
+
+  private mountModel(runtime: Runtime, entity: EntityData, src: string, fit: number) {
+    const token = ++runtime.loadToken;
+    const placeholder = new THREE.Mesh(
+      new THREE.BoxGeometry(0.35, 0.35, 0.35),
+      new THREE.MeshStandardMaterial({ color: "#3a3632", roughness: 0.8 }),
+    );
+    placeholder.userData.entityId = entity.id;
+    placeholder.userData.proxy = true;
+    runtime.root.add(placeholder);
+    runtime.disposables.push(placeholder.geometry, placeholder.material);
+    void this.loadModel(src, fit)
+      .then((loaded) => {
+        if (runtime.loadToken !== token) return;
+        placeholder.removeFromParent();
+        const clone = cloneSkinned(loaded.template);
+        tag(clone, entity.id);
+        runtime.root.add(clone);
+        const clip = loaded.clips.find((item) => /idle|walk|breathe/i.test(item.name)) ?? loaded.clips[0];
+        if (clip) {
+          const mixer = new THREE.AnimationMixer(clone);
+          mixer.clipAction(clip).play();
+          runtime.mixer = mixer;
+        }
+      })
+      .catch((error: unknown) => {
+        if (runtime.loadToken !== token) return;
+        const message = error instanceof Error ? error.message : "Could not load model";
+        this.hooks.onLog("error", `${entity.name}: ${message}`);
+      });
+  }
+
   private clearContent(runtime: Runtime) {
+    runtime.loadToken += 1;
+    runtime.mixer?.stopAllAction();
+    runtime.mixer = null;
     for (const item of runtime.disposables) item.dispose();
     runtime.disposables = [];
     runtime.proxy = null;
+    runtime.rig = null;
+    runtime.gem = null;
     for (const child of [...runtime.root.children]) {
       runtime.root.remove(child);
     }

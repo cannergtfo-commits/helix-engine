@@ -6,6 +6,7 @@ import {
   type Component,
   type EntityData,
   type SceneDocument,
+  type StoryBeat,
 } from "@/engine";
 import { SCENE_STORAGE_KEY } from "@/engine/types";
 import type { Tool } from "@/engine";
@@ -29,11 +30,19 @@ type EditorState = {
   hydrated: boolean;
   lastBurst: Burst | null;
   logSeq: number;
+  beat: number;
   hydrate: () => void;
   select: (id: string | null) => void;
   setTool: (tool: Tool) => void;
   setSnap: (snap: boolean) => void;
   renameScene: (name: string) => void;
+  patchDoc: (patch: Partial<SceneDocument>) => void;
+  editBeat: (id: string, patch: Partial<StoryBeat>) => void;
+  addBeat: () => void;
+  removeBeat: (id: string) => void;
+  moveBeat: (fromId: string, beforeId: string) => void;
+  setBeat: (beat: number) => void;
+  advanceBeat: () => void;
   updateEntity: (id: string, patch: Partial<EntityData>) => void;
   updateComponent: (id: string, index: number, patch: Record<string, unknown>) => void;
   addComponent: (id: string, component: Component) => void;
@@ -92,6 +101,7 @@ export const useEditor = create<EditorState>((set, get) => ({
   hydrated: false,
   lastBurst: null,
   logSeq: 1,
+  beat: 0,
 
   hydrate: () => {
     const starter = createStarterScene();
@@ -106,8 +116,12 @@ export const useEditor = create<EditorState>((set, get) => ({
     } catch {
       /* private mode */
     }
-    const selected = doc.entities.find((entity) => entity.name === "Rover")?.id ?? doc.entities[0]?.id ?? null;
-    set({ doc, hydrated: true, selectedId: selected, past: [], future: [] });
+    const selected =
+      doc.entities.find((entity) => entity.components.some((component) => component.type === "script" && component.behavior === "player"))
+        ?.id ??
+      doc.entities[0]?.id ??
+      null;
+    set({ doc, hydrated: true, selectedId: selected, past: [], future: [], beat: 0 });
   },
 
   select: (id) => set({ selectedId: id }),
@@ -115,6 +129,54 @@ export const useEditor = create<EditorState>((set, get) => ({
   setSnap: (snap) => set({ snap }),
 
   renameScene: (name) => set((state) => burst(state, "scene-name", { ...state.doc, name })),
+
+  patchDoc: (patch) => set((state) => burst(state, "doc-patch", { ...state.doc, ...patch })),
+
+  editBeat: (id, patch) =>
+    set((state) =>
+      burst(state, `beat:${id}`, {
+        ...state.doc,
+        story: state.doc.story.map((beat) => (beat.id === id ? { ...beat, ...patch } : beat)),
+      }),
+    ),
+
+  addBeat: () =>
+    set((state) => {
+      const beat: StoryBeat = {
+        id: `beat_${Math.random().toString(36).slice(2, 8)}`,
+        kind: "dialogue",
+        speaker: "",
+        title: "New beat",
+        body: "What the player learns here.",
+      };
+      return withPast(state, { ...state.doc, story: [...state.doc.story, beat] });
+    }),
+
+  removeBeat: (id) =>
+    set((state) => {
+      const story = state.doc.story.filter((beat) => beat.id !== id);
+      if (story.length === 0) return {};
+      return withPast(state, { ...state.doc, story }, { beat: Math.min(state.beat, story.length - 1) });
+    }),
+
+  moveBeat: (fromId, beforeId) =>
+    set((state) => {
+      if (fromId === beforeId) return {};
+      const story = [...state.doc.story];
+      const from = story.findIndex((beat) => beat.id === fromId);
+      const before = story.findIndex((beat) => beat.id === beforeId);
+      if (from < 0 || before < 0) return {};
+      const [item] = story.splice(from, 1);
+      if (!item) return {};
+      const insertAt = story.findIndex((beat) => beat.id === beforeId);
+      story.splice(insertAt < 0 ? story.length : insertAt, 0, item);
+      return withPast(state, { ...state.doc, story });
+    }),
+
+  setBeat: (beat) => set({ beat }),
+
+  advanceBeat: () =>
+    set((state) => ({ beat: Math.min(state.beat + 1, Math.max(0, state.doc.story.length - 1)) })),
 
   updateEntity: (id, patch) =>
     set((state) => burst(state, `entity:${id}`, replaceEntity(state.doc, id, (entity) => ({ ...entity, ...patch })))),
@@ -178,7 +240,7 @@ export const useEditor = create<EditorState>((set, get) => ({
       return withPast(state, { ...state.doc, entities: [...state.doc.entities, copy] }, { selectedId: copy.id });
     }),
 
-  loadDoc: (doc) => set((state) => withPast(state, doc, { selectedId: doc.entities[0]?.id ?? null, mode: "edit" })),
+  loadDoc: (doc) => set((state) => withPast(state, doc, { selectedId: doc.entities[0]?.id ?? null, mode: "edit", beat: 0 })),
 
   undo: () =>
     set((state) => {
@@ -217,7 +279,7 @@ export const useEditor = create<EditorState>((set, get) => ({
   play: () =>
     set((state) => {
       if (state.mode === "play") return { paused: false };
-      return { mode: "play", paused: false, playSnapshot: cloneDoc(state.doc) };
+      return { mode: "play", paused: false, playSnapshot: cloneDoc(state.doc), beat: 0 };
     }),
 
   stop: () =>

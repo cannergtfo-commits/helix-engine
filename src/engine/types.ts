@@ -12,6 +12,16 @@ export type Primitive =
 
 export type Behavior = "spin" | "bob" | "orbit" | "player" | "custom";
 
+export type CharacterKit = "warden" | "relay";
+
+export type AnimClip = "idle" | "walk" | "greet" | "strike" | "wave" | "dash";
+
+export type ChainId = "ethereum" | "polygon";
+
+export type TokenStandard = "erc20" | "erc721" | "erc1155";
+
+export type ChainRole = "collectible" | "gate" | "currency" | "skin";
+
 export type MeshComponent = {
   type: "mesh";
   primitive: Primitive;
@@ -20,6 +30,10 @@ export type MeshComponent = {
   roughness: number;
   castShadow: boolean;
   receiveShadow: boolean;
+  /** Public path to a glTF model. When set, the primitive is only a fallback. */
+  src?: string;
+  /** Target size of the longest side, in metres. */
+  fit?: number;
 };
 
 export type LightKind = "ambient" | "directional" | "point" | "spot";
@@ -67,13 +81,37 @@ export type ScriptComponent = {
   source: string;
 };
 
+export type CharacterComponent = {
+  type: "character";
+  kit: CharacterKit;
+  clip: AnimClip;
+  accent: string;
+};
+
+export type ChainComponent = {
+  type: "chain";
+  chain: ChainId;
+  standard: TokenStandard;
+  role: ChainRole;
+  contract: string;
+  tokenId: string;
+  symbol: string;
+  label: string;
+  /** Pickup grant, or tokens required to open a gate. */
+  amount: number;
+  /** Worn in play when role is skin and the wallet holds the token. */
+  tint: string;
+};
+
 export type Component =
   | MeshComponent
   | LightComponent
   | CameraComponent
   | RigidbodyComponent
   | ColliderComponent
-  | ScriptComponent;
+  | ScriptComponent
+  | CharacterComponent
+  | ChainComponent;
 
 export type EntityData = {
   id: string;
@@ -86,6 +124,22 @@ export type EntityData = {
   components: Component[];
 };
 
+export type StoryKind = "setup" | "dialogue" | "objective" | "payoff";
+
+export type StoryBeat = {
+  id: string;
+  title: string;
+  body: string;
+  kind: StoryKind;
+  speaker: string;
+};
+
+export type Concept = {
+  logline: string;
+  tone: string;
+  pillars: string[];
+};
+
 export type SceneDocument = {
   version: 1;
   name: string;
@@ -93,9 +147,35 @@ export type SceneDocument = {
   background: string;
   fog: { enabled: boolean; color: string; near: number; far: number };
   entities: EntityData[];
+  concept: Concept;
+  story: StoryBeat[];
 };
 
-export const SCENE_STORAGE_KEY = "helix.scene.v1";
+export type ChainQuery = {
+  chain: ChainId;
+  standard: TokenStandard;
+  contract: string;
+  tokenId: string;
+  amount: number;
+};
+
+export type ChainEvent =
+  | {
+      type: "pickup";
+      id: string;
+      label: string;
+      symbol: string;
+      role: ChainRole;
+      chain: ChainId;
+      standard: TokenStandard;
+      contract: string;
+      tokenId: string;
+      amount: number;
+    }
+  | { type: "unlock"; id: string; label: string }
+  | { type: "locked"; id: string; label: string; symbol: string };
+
+export const SCENE_STORAGE_KEY = "helix.scene.v3";
 
 export const CUSTOM_SCRIPT_TEMPLATE = `// Runs every fixed step. World axes, degrees for rotate().
 api.rotate(0, 35 * api.dt, 0);

@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { HelixEngine, type EngineStats } from "@/engine";
+import { readDrag } from "@/studio/catalog";
+import { placeDrag } from "@/studio/place";
+import { useWallet } from "@/studio/wallet";
 import { useEditor } from "./store";
 
 const EMPTY_STATS: EngineStats = { fps: 0, calls: 0, triangles: 0, entities: 0 };
@@ -9,6 +12,7 @@ export function Viewport() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<HelixEngine | null>(null);
   const [stats, setStats] = useState<EngineStats>(EMPTY_STATS);
+  const [over, setOver] = useState(false);
   const mode = useEditor((state) => state.mode);
   const paused = useEditor((state) => state.paused);
   const sceneName = useEditor((state) => state.doc.name);
@@ -30,6 +34,28 @@ export function Viewport() {
       },
       onSelect: (id) => useEditor.getState().select(id),
       onStats: setStats,
+      holdsToken: (query) => useWallet.getState().holds(query),
+      onChain: (event) => {
+        const editor = useEditor.getState();
+        if (event.type === "pickup") {
+          useWallet.getState().credit({
+            chain: event.chain,
+            standard: event.standard,
+            contract: event.contract,
+            tokenId: event.tokenId,
+            amount: event.amount,
+            label: event.label,
+            symbol: event.symbol,
+          });
+          editor.log("info", `${event.label} is in the studio wallet.`);
+          if (event.role === "collectible") editor.advanceBeat();
+        } else if (event.type === "unlock") {
+          editor.log("info", `${event.label} opened.`);
+          editor.advanceBeat();
+        } else {
+          editor.log("warn", `${event.label} needs ${event.symbol}. Claim it on the Chain tab.`);
+        }
+      },
     });
     engineRef.current = engine;
     const initial = useEditor.getState();
@@ -83,8 +109,32 @@ export function Viewport() {
   }, []);
 
   return (
-    <div ref={hostRef} className="relative h-full min-h-0 w-full touch-none bg-bg">
+    <div
+      ref={hostRef}
+      className="relative h-full min-h-0 w-full touch-none bg-bg"
+      onDragOver={(event) => {
+        if (mode !== "edit") return;
+        event.preventDefault();
+        setOver(true);
+      }}
+      onDragLeave={() => setOver(false)}
+      onDrop={(event) => {
+        event.preventDefault();
+        setOver(false);
+        if (useEditor.getState().mode !== "edit") return;
+        const payload = readDrag(event.dataTransfer.getData("text/plain"));
+        if (!payload) return;
+        const point = engineRef.current?.groundPoint(event.clientX, event.clientY);
+        if (!point) return;
+        placeDrag(payload, point.x, point.z);
+      }}
+    >
       <canvas ref={canvasRef} className="block h-full w-full" />
+      {over && mode === "edit" ? (
+        <div className="pointer-events-none absolute inset-3 grid place-items-center rounded-md border border-accent bg-bg/70 text-sm text-fg">
+          Drop on the floor
+        </div>
+      ) : null}
       <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-3">
         <div className="rounded-md bg-bg/80 px-2.5 py-1.5 text-xs text-fg backdrop-blur-sm">
           <span className="font-medium">{sceneName}</span>
@@ -96,10 +146,35 @@ export function Viewport() {
       </div>
       <p className="pointer-events-none absolute inset-x-0 bottom-3 text-center text-xs text-muted">
         {mode === "play"
-          ? "W throttle · A turns left · D turns right · S brake"
-          : "Left drag orbits · right drag pans · scroll zooms · click selects"}
+          ? "W drives · A turns left · D turns right · S brakes"
+          : "Drag an asset in · left drag orbits · click selects"}
       </p>
+      {mode === "play" ? <PlayCard /> : null}
       {mode === "play" ? <Stick engineRef={engineRef} /> : null}
+    </div>
+  );
+}
+
+function PlayCard() {
+  const story = useEditor((state) => state.doc.story);
+  const beat = useEditor((state) => state.beat);
+  const holdings = useWallet((state) => state.holdings);
+  const current = story[beat] ?? story[0];
+  if (!current) return null;
+  const symbols = holdings.map((holding) => holding.symbol).slice(0, 3).join(" · ");
+  return (
+    <div className="pointer-events-auto absolute top-14 left-3 max-w-64 rounded-md border border-line bg-bg/90 p-3">
+      <div className="text-xs tracking-wide text-muted uppercase">{current.kind}</div>
+      <div className="mt-1 text-sm font-medium text-fg">{current.title}</div>
+      <p className="mt-1 text-xs text-muted">{current.body}</p>
+      <div className="mt-2 flex items-center justify-between gap-2">
+        <span className="truncate font-mono text-xs text-muted">{symbols || "Wallet empty"}</span>
+        {beat < story.length - 1 ? (
+          <button type="button" className="h-8 shrink-0 rounded-md bg-raised px-2 text-xs text-fg" onClick={() => useEditor.getState().advanceBeat()}>
+            Next
+          </button>
+        ) : null}
+      </div>
     </div>
   );
 }

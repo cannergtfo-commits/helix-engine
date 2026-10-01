@@ -1,11 +1,16 @@
+import { CATALOG, chainFromItem } from "@/studio/catalog";
 import {
   CUSTOM_SCRIPT_TEMPLATE,
+  type AnimClip,
   type Behavior,
+  type CharacterKit,
   type Component,
+  type Concept,
   type EntityData,
   type Primitive,
   type SceneDocument,
   type ScriptComponent,
+  type StoryBeat,
   type Vec3,
 } from "./types";
 
@@ -127,6 +132,56 @@ export function playerEntity(): EntityData {
   });
 }
 
+export function characterEntity(
+  kit: CharacterKit,
+  options: { clip?: AnimClip; player?: boolean } = {},
+): EntityData {
+  const accent = kit === "warden" ? "#c9863a" : "#9aa58b";
+  const player = options.player ?? kit === "warden";
+  const components: Component[] = [
+    { type: "character", kit, clip: options.clip ?? "idle", accent },
+  ];
+  if (player) components.push(script("player", { speed: 5.6, turnRate: 2.3 }));
+  return makeEntity(kit === "warden" ? "Warden" : "Relay", {
+    position: vec(0, 0, 0),
+    components,
+  });
+}
+
+export function defaultConcept(): Concept {
+  return {
+    logline: "A warden walks a quiet hall where Ethereum relics and Polygon keys decide which doors open.",
+    tone: "Mythic",
+    pillars: ["Drag a token into the room", "Wallets are the inventory", "Two chains, one hall"],
+  };
+}
+
+export function defaultStory(): StoryBeat[] {
+  return [
+    {
+      id: "beat-welcome",
+      kind: "setup",
+      speaker: "Hall",
+      title: "The hall remembers wallets",
+      body: "Drive the warden. The brass relic on the pedestal belongs to whoever reaches it.",
+    },
+    {
+      id: "beat-relic",
+      kind: "objective",
+      speaker: "Warden",
+      title: "The relic answers",
+      body: "It sits in the studio wallet now. The archive door is still waiting on a Polygon key.",
+    },
+    {
+      id: "beat-open",
+      kind: "payoff",
+      speaker: "Hall",
+      title: "Both chains agreed",
+      body: "The door lifts. The heart of the archive was never locked against you — only unclaimed.",
+    },
+  ];
+}
+
 export function emptyScene(): SceneDocument {
   return {
     version: 1,
@@ -134,6 +189,20 @@ export function emptyScene(): SceneDocument {
     gravity: 18,
     background: "#12141a",
     fog: { enabled: true, color: "#12141a", near: 18, far: 48 },
+    concept: {
+      logline: "A small scene, ready for characters, beats, and tokens.",
+      tone: "Quiet",
+      pillars: ["One readable room", "A character who can walk", "Tokens only where they matter"],
+    },
+    story: [
+      {
+        id: "beat-start",
+        kind: "setup",
+        speaker: "Narrator",
+        title: "Begin here",
+        body: "Add a character from the library, then press Play.",
+      },
+    ],
     entities: [
       makeEntity("Ground", {
         id: "ground",
@@ -151,83 +220,130 @@ export function emptyScene(): SceneDocument {
   };
 }
 
+function sample(id: string) {
+  const item = CATALOG.find((entry) => entry.id === id);
+  if (!item) throw new Error(`Missing catalog sample ${id}`);
+  return chainFromItem(item);
+}
+
 export function createStarterScene(): SceneDocument {
   const doc = emptyScene();
-  doc.name = "Courtyard";
+  doc.name = "Relic Hall";
+  doc.concept = defaultConcept();
+  doc.story = defaultStory();
+  const warden = characterEntity("warden", { player: true, clip: "idle" });
+  warden.id = "warden";
+  warden.position = vec(0, 0, 2.6);
+  const relay = characterEntity("relay", { player: false, clip: "wave" });
+  relay.id = "relay";
+  relay.position = vec(-1.55, 0, 0.85);
+  relay.rotation = vec(0, 28, 0);
   doc.entities.push(
+    makeEntity("Wall L", {
+      id: "wall-l",
+      position: vec(-3.35, 0.8, 0.15),
+      scale: vec(0.28, 1.6, 7.4),
+      components: [mesh("box", "#34322e", { metalness: 0.08, roughness: 0.86 }), colliderFor("box", true)],
+    }),
+    makeEntity("Wall R", {
+      id: "wall-r",
+      position: vec(3.35, 0.8, 0.15),
+      scale: vec(0.28, 1.6, 7.4),
+      components: [mesh("box", "#34322e", { metalness: 0.08, roughness: 0.86 }), colliderFor("box", true)],
+    }),
     makeEntity("Pedestal", {
       id: "pedestal",
-      position: vec(0, 0.175, -0.3),
-      scale: vec(2.4, 0.35, 2.4),
+      position: vec(1.35, 0.18, 0.15),
+      scale: vec(1.35, 0.36, 1.35),
+      components: [mesh("box", "#3a3632", { metalness: 0.2, roughness: 0.78 }), colliderFor("box", true)],
+    }),
+    makeEntity("Brass Relic", {
+      id: "relic",
+      position: vec(1.35, 0.78, 0.15),
+      scale: vec(0.62, 0.62, 0.62),
       components: [
-        mesh("box", "#3a3632", { metalness: 0.2, roughness: 0.78, castShadow: true, receiveShadow: true }),
+        mesh("sphere", "#c9863a", { metalness: 0.7, roughness: 0.26 }),
+        script("bob", { speed: 1.5, amplitude: 0.07 }),
+        sample("helix-relic"),
+      ],
+    }),
+    makeEntity("Loom Shard", {
+      id: "loom",
+      position: vec(-1.15, 0.72, -0.85),
+      scale: vec(0.7, 0.7, 0.7),
+      components: [
+        mesh("torus", "#9aa58b", { metalness: 0.55, roughness: 0.32 }),
+        script("spin", { speed: 28 }),
+        sample("loom"),
+      ],
+    }),
+    makeEntity("Archive Door", {
+      id: "door",
+      position: vec(0, 1.1, -3.45),
+      scale: vec(6.4, 2.2, 0.28),
+      components: [
+        mesh("box", "#2a2622", { metalness: 0.42, roughness: 0.5 }),
         colliderFor("box", true),
+        sample("courtyard-key"),
       ],
     }),
-    makeEntity("Core", {
-      id: "core",
-      position: vec(0, 1.05, -0.3),
-      scale: vec(1.05, 1.05, 1.05),
-      components: [
-        mesh("sphere", "#d9d3c7", { metalness: 0.55, roughness: 0.22, castShadow: true, receiveShadow: true }),
-        script("bob", { speed: 1.4, amplitude: 0.06 }),
-      ],
+    makeEntity("Door Seal", {
+      id: "seal",
+      position: vec(0, 1.15, -3.26),
+      scale: vec(1.35, 1.7, 0.08),
+      components: [mesh("box", "#c9863a", { metalness: 0.72, roughness: 0.28 })],
     }),
-    makeEntity("Ring", {
-      id: "ring",
-      position: vec(0, 2.35, -0.3),
-      scale: vec(1.35, 1.35, 1.35),
+    makeEntity("Archive Heart", {
+      id: "heart",
+      position: vec(0, 1.15, -5.15),
       components: [
-        mesh("torus", "#c9863a", { metalness: 0.86, roughness: 0.22, castShadow: true, receiveShadow: false }),
-        script("spin", { speed: 36 }),
+        mesh("sphere", "#e8a54b", { metalness: 0.45, roughness: 0.22 }),
+        script("bob", { speed: 1.2, amplitude: 0.1 }),
+        { type: "light", light: "point", color: "#e8a54b", intensity: 14, castShadow: false },
       ],
     }),
     makeEntity("Pillar L", {
       id: "pillar-l",
-      position: vec(-2.35, 1.1, -1.7),
-      scale: vec(0.42, 2.2, 0.42),
-      components: [
-        mesh("cylinder", "#8a93a0", { metalness: 0.45, roughness: 0.4, castShadow: true, receiveShadow: true }),
-        colliderFor("cylinder", true),
-      ],
+      position: vec(-1.9, 0.9, -1.35),
+      scale: vec(0.38, 1.8, 0.38),
+      components: [mesh("cylinder", "#8a93a0", { metalness: 0.4, roughness: 0.42 }), colliderFor("cylinder", true)],
     }),
     makeEntity("Pillar R", {
       id: "pillar-r",
-      position: vec(2.35, 1.1, -1.7),
-      scale: vec(0.42, 2.2, 0.42),
-      components: [
-        mesh("cylinder", "#8a93a0", { metalness: 0.45, roughness: 0.4, castShadow: true, receiveShadow: true }),
-        colliderFor("cylinder", true),
-      ],
+      position: vec(1.9, 0.9, -1.35),
+      scale: vec(0.38, 1.8, 0.38),
+      components: [mesh("cylinder", "#8a93a0", { metalness: 0.4, roughness: 0.42 }), colliderFor("cylinder", true)],
     }),
-    makeEntity("Crate A", {
-      id: "crate-a",
-      position: vec(1.7, 2.6, 0.5),
-      scale: vec(0.7, 0.7, 0.7),
-      components: [
-        mesh("box", "#9aa58b", { metalness: 0.05, roughness: 0.84, castShadow: true, receiveShadow: true }),
-        colliderFor("box", false),
-        { type: "rigidbody", mass: 1, useGravity: true, restitution: 0.22, friction: 1.4 },
-      ],
-    }),
-    makeEntity("Crate B", {
-      id: "crate-b",
-      position: vec(-1.15, 3.5, -0.15),
-      scale: vec(0.55, 0.55, 0.55),
-      components: [
-        mesh("box", "#d4654a", { metalness: 0.08, roughness: 0.7, castShadow: true, receiveShadow: true }),
-        colliderFor("box", false),
-        { type: "rigidbody", mass: 1, useGravity: true, restitution: 0.3, friction: 1.1 },
-      ],
-    }),
-    makeEntity("Ember", {
-      id: "ember",
-      position: vec(0, 1.7, -0.3),
-      components: [{ type: "light", light: "point", color: "#e8a54b", intensity: 22, castShadow: false }],
-    }),
-    playerEntity(),
+    relay,
+    warden,
   );
   return doc;
+}
+
+function cleanConcept(value: Concept | undefined): Concept {
+  if (!value || typeof value.logline !== "string") return defaultConcept();
+  const pillars = Array.isArray(value.pillars) ? value.pillars.filter((item) => typeof item === "string").slice(0, 3) : [];
+  while (pillars.length < 3) pillars.push("");
+  return {
+    logline: value.logline,
+    tone: typeof value.tone === "string" && value.tone ? value.tone : "Quiet",
+    pillars,
+  };
+}
+
+function cleanStory(value: StoryBeat[] | undefined): StoryBeat[] {
+  if (!Array.isArray(value) || value.length === 0) return defaultStory();
+  const beats = value.filter(
+    (beat) => beat && typeof beat.id === "string" && typeof beat.title === "string" && typeof beat.body === "string",
+  );
+  if (beats.length === 0) return defaultStory();
+  return beats.map((beat) => ({
+    id: beat.id,
+    title: beat.title,
+    body: beat.body,
+    kind: beat.kind === "dialogue" || beat.kind === "objective" || beat.kind === "payoff" ? beat.kind : "setup",
+    speaker: typeof beat.speaker === "string" ? beat.speaker : "",
+  }));
 }
 
 export function parseScene(raw: string): SceneDocument | null {
@@ -235,7 +351,9 @@ export function parseScene(raw: string): SceneDocument | null {
     const data = JSON.parse(raw) as Partial<SceneDocument>;
     if (!data || data.version !== 1 || !Array.isArray(data.entities)) return null;
     if (typeof data.name !== "string" || typeof data.gravity !== "number") return null;
-    return data as SceneDocument;
+    const concept = cleanConcept(data.concept);
+    const story = cleanStory(data.story);
+    return { ...(data as SceneDocument), concept, story };
   } catch {
     return null;
   }
