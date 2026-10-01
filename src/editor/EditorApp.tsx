@@ -45,6 +45,7 @@ import {
   type EntityData,
   type Primitive,
 } from "@/engine";
+import { installHelix } from "@/agent/bridge";
 import { Viewport } from "./Viewport";
 import { useEditor } from "./store";
 import { ChainDesk, ConceptBoard, ExtraFields, Library, StoryBoard, WorkspaceBar, type Workspace } from "@/studio/StudioPanels";
@@ -65,6 +66,7 @@ export function EditorApp({ autoPlay = false }: { autoPlay?: boolean }) {
   useEffect(() => {
     useEditor.getState().hydrate();
     useWallet.getState().hydrate();
+    return installHelix();
   }, []);
 
   useEffect(() => {

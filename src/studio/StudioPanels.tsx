@@ -17,6 +17,7 @@ import {
 import { applyClip, bindChainToSelection, chainProp, entityFromDrag, placeInScene } from "./place";
 import { ModelShelf } from "./ModelShelf";
 import { Director } from "./Director";
+import { AgentCard } from "@/agent/AgentCard";
 import { shortAddress, useWallet } from "./wallet";
 
 export type Workspace = "design" | "story" | "concept" | "chain";
@@ -73,6 +74,7 @@ export function Library({ onPlaced }: { onPlaced?: () => void }) {
   return (
     <div className="min-h-0 flex-1 space-y-4 overflow-auto px-2 py-3">
       <Director />
+      <AgentCard />
       <ModelShelf onPlaced={onPlaced} />
       <p className="px-1 text-xs text-muted">The shelf is the director’s vocabulary. Drag a model if you want to place one yourself.</p>
       <Section title="Characters">

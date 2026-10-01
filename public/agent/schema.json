@@ -1,0 +1,31 @@
+{
+  "name": "helix",
+  "version": "1",
+  "runtime": "window.helix on the studio page. Same-origin frames may post { type: 'helix.run', id, commands } and listen for { type: 'helix.result', id, result }.",
+  "units": "Metres. Y is up. Yaw is degrees. Heading 0 faces world -Z. W drives, A turns left, D turns right.",
+  "read": {
+    "catalog": "await helix.catalog()",
+    "find": "await helix.find('knight')",
+    "scene": "helix.scene()"
+  },
+  "write": "await helix.run(commands). At most 24 commands. One undo step. Ground, camera, and lights cannot be removed.",
+  "result": { "ok": true, "applied": 1, "errors": [{ "index": 0, "error": "reason" }], "scene": {} },
+  "commands": [
+    { "op": "clear", "does": "Remove props. Keeps the stage and the warden." },
+    { "op": "scene", "fields": ["name", "gravity", "background"] },
+    { "op": "concept", "fields": ["logline", "tone", "pillars"] },
+    { "op": "story", "fields": ["beats[].title", "beats[].body", "beats[].kind", "beats[].speaker"] },
+    { "op": "place", "fields": ["asset", "id", "x", "z", "yaw"], "does": "asset is a catalog id, an exact title, or a unique fragment such as knight." },
+    { "op": "spawn", "fields": ["kit", "id", "x", "z", "yaw", "player"], "does": "kit is warden or relay." },
+    { "op": "move", "fields": ["id", "x", "y", "z", "yaw"] },
+    { "op": "remove", "fields": ["id"] },
+    { "op": "select", "fields": ["id"] }
+  ],
+  "example": [
+    { "op": "clear" },
+    { "op": "scene", "name": "Bot yard" },
+    { "op": "place", "id": "gate", "asset": "knight", "x": 2, "z": -2, "yaw": 180 },
+    { "op": "place", "id": "hoard", "asset": "Treasure chest", "x": -2, "z": -2 },
+    { "op": "story", "beats": [{ "title": "The gate", "body": "The knight does not move. The chest does.", "kind": "setup", "speaker": "Yard" }] }
+  ]
+}

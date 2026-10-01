@@ -38,6 +38,8 @@ engine.start();
 
 A scene is version `1` JSON: gravity, fog, and entities with transform plus components (`mesh`, `light`, `camera`, `collider`, `rigidbody`, `script`).
 
+Bots build through `window.helix` on the studio page. `helix.catalog()`, `helix.find("knight")`, and `helix.scene()` are the reads. `helix.run([{ op: "place", id: "gate", asset: "knight", x: 2, z: -2 }])` is the write. The same contract is at `/agent/schema.json`. A same-origin frame can post `{ type: "helix.run", id, commands }` and listen for `{ type: "helix.result" }`. Ground, camera, and lights stay. One batch is one undo step.
+
 Helix is directed by Grok. In the library, describe a scene and press Direct this scene. The call runs on the server, places models from the CC0 catalog, and writes the story beats and concept. The warden, ground, and lights stay so the result is playable. Box, sphere, and the other primitives are tucked under Add → Shapes.
 
 Helix 0.3 adds a CC0 model shelf. The files in `public/library` are AI-assisted game models published under CC0 1.0 by their contributors on [3dassets.dev](https://3dassets.dev). They are public domain: use them in a game, change them, ship them. No attribution is required. Drag a model from Library onto the floor, or use Add. A model keeps its materials; the primitive color does not tint it.
