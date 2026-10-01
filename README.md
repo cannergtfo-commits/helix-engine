@@ -38,6 +38,7 @@ engine.start();
 
 A scene is version `1` JSON: gravity, fog, and entities with transform plus components (`mesh`, `light`, `camera`, `collider`, `rigidbody`, `script`).
 
-## What this version is
+The files here are the engine and the editor. `src/routes` and `src/router.tsx` are the host integration: they import the application shell, so they compile inside the Helix app rather than as a bare package. Extend `src/engine` and `src/editor` to keep shipping it.
 
-Helix 0.1 is a shippable editor and runtime, not a finished Unity replacement. It is the base to keep extending: nested hierarchy, asset pipeline, animation clips, and a packaged player build are the next layers. The component document is the stable surface so later versions can load scenes saved now.
+Helix 0.1 is a shippable editor and runtime, not a finished Unity or Unreal replacement. Nested hierarchy, an asset pipeline, animation clips, and a packaged player build are the next layers. The scene document is version 1, so later versions can load scenes saved now.
+
