@@ -75,6 +75,7 @@ export function Viewport() {
     engineRef.current = engine;
     const initial = useEditor.getState();
     engine.apply(initial.doc);
+    engine.setWeather(initial.weather);
     engine.setTool(initial.tool);
     engine.setSnap(initial.snap);
     engine.setSelected(initial.selectedId);
@@ -103,11 +104,18 @@ export function Viewport() {
       if (state.selectedId !== prev.selectedId) engine.setSelected(state.selectedId);
       if (state.tool !== prev.tool) engine.setTool(state.tool);
       if (state.snap !== prev.snap) engine.setSnap(state.snap);
+      if (state.weather !== prev.weather) engine.setWeather(state.weather);
       prev = state;
     });
 
     const onFrame = () => engine.frame(useEditor.getState().selectedId);
+    const onLook = (event: Event) => {
+      const detail = (event as CustomEvent<{ position: { x: number; y: number; z: number }; target: { x: number; y: number; z: number } }>).detail;
+      if (!detail) return;
+      engine.lookAt(detail.position, detail.target);
+    };
     window.addEventListener("helix:frame", onFrame);
+    window.addEventListener("helix:look", onLook);
 
     const resize = () => engine.resize(host.clientWidth, host.clientHeight);
     const observer = new ResizeObserver(resize);
@@ -117,6 +125,7 @@ export function Viewport() {
     return () => {
       unsub();
       window.removeEventListener("helix:frame", onFrame);
+      window.removeEventListener("helix:look", onLook);
       observer.disconnect();
       engine.dispose();
       engineRef.current = null;

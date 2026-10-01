@@ -3,6 +3,7 @@ import {
   Box,
   Camera,
   Circle,
+  CloudRain,
   Cone,
   Copy,
   Cylinder,
@@ -230,6 +231,7 @@ function Toolbar({ onImport, onPlay }: { onImport: () => void; onPlay: () => voi
   const paused = useEditor((state) => state.paused);
   const tool = useEditor((state) => state.tool);
   const snap = useEditor((state) => state.snap);
+  const weather = useEditor((state) => state.weather);
   const name = useEditor((state) => state.doc.name);
   const canUndo = useEditor((state) => state.past.length > 0 && state.mode === "edit");
   const canRedo = useEditor((state) => state.future.length > 0 && state.mode === "edit");
@@ -270,6 +272,13 @@ function Toolbar({ onImport, onPlay }: { onImport: () => void; onPlay: () => voi
         </ToolButton>
         <ToolButton label="Snap" active={snap} onClick={() => useEditor.getState().setSnap(!snap)}>
           <Magnet className="size-4" />
+        </ToolButton>
+        <ToolButton
+          label="Rain"
+          active={weather === "rain"}
+          onClick={() => useEditor.getState().setWeather(weather === "rain" ? "clear" : "rain")}
+        >
+          <CloudRain className="size-4" />
         </ToolButton>
         <IconButton label="Frame selection" onClick={() => window.dispatchEvent(new Event("helix:frame"))}>
           <Focus className="size-4" />

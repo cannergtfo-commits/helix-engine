@@ -27,6 +27,31 @@ import type {
 const DEG = Math.PI / 180;
 const RAD = 180 / Math.PI;
 const FIXED = 1 / 60;
+const RAIN_COUNT = 2400;
+
+function unit(n: number) {
+  const x = Math.sin(n * 127.1 + 311.7) * 43758.5453;
+  return x - Math.floor(x);
+}
+
+function rainStreakTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 64;
+  canvas.height = 64;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  const gradient = ctx.createLinearGradient(0, 0, 0, 64);
+  gradient.addColorStop(0, "rgba(255,255,255,0)");
+  gradient.addColorStop(0.16, "rgba(214,226,242,0.18)");
+  gradient.addColorStop(0.46, "rgba(246,250,255,0.96)");
+  gradient.addColorStop(0.74, "rgba(190,208,228,0.32)");
+  gradient.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = gradient;
+  ctx.fillRect(30, 0, 3, 64);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
 
 export type Tool = "translate" | "rotate" | "scale";
 export type LogLevel = "info" | "warn" | "error";
@@ -254,6 +279,16 @@ export class HelixEngine {
   private running = false;
   private width = 1;
   private height = 1;
+  private weather: "clear" | "rain" = "clear";
+  private atmosphereDoc: SceneDocument | null = null;
+  private rain: THREE.Points | null = null;
+  private rainSpeeds: Float32Array | null = null;
+  private rainDrift: Float32Array | null = null;
+  private flash = 0;
+  private readonly rainForward = new THREE.Vector3();
+  private readonly rainRight = new THREE.Vector3();
+  private readonly rainUp = new THREE.Vector3();
+  private readonly rainSpot = new THREE.Vector3();
 
   constructor(canvas: HTMLCanvasElement, hooks: Hooks) {
     this.hooks = hooks;
@@ -388,10 +423,8 @@ export class HelixEngine {
   }
 
   apply(doc: SceneDocument) {
+    this.atmosphereDoc = doc;
     this.gravity = doc.gravity;
-    this.scene.background = new THREE.Color(doc.background);
-    this.scene.fog = doc.fog.enabled ? new THREE.Fog(doc.fog.color, doc.fog.near, doc.fog.far) : null;
-
     const alive = new Set(doc.entities.map((entity) => entity.id));
     for (const id of this.runtimes.keys()) {
       if (!alive.has(id)) this.destroyRuntime(id);
@@ -399,6 +432,8 @@ export class HelixEngine {
     for (const entity of doc.entities) this.upsert(entity);
     if (this.selectedId && !alive.has(this.selectedId)) this.setSelected(null);
     else this.setSelected(this.selectedId);
+    this.paintAtmosphere();
+    this.glossGround(this.weather === "rain");
   }
 
   setSelected(id: string | null) {
@@ -418,11 +453,154 @@ export class HelixEngine {
     this.transform.scaleSnap = enabled ? 0.1 : null;
   }
 
+  setWeather(mode: "clear" | "rain") {
+    this.weather = mode;
+    if (mode === "rain") this.ensureRain();
+    if (this.rain) this.rain.visible = mode === "rain";
+    this.paintAtmosphere();
+    this.glossGround(mode === "rain");
+    if (mode === "clear") {
+      this.flash = 0;
+      this.renderer.toneMappingExposure = 1.02;
+    }
+    this.grid.visible = this.mode === "edit" && mode !== "rain";
+  }
+
+  lookAt(position: { x: number; y: number; z: number }, target: { x: number; y: number; z: number }) {
+    this.editorCamera.position.set(position.x, position.y, position.z);
+    this.orbit.target.set(target.x, target.y, target.z);
+    this.editorCamera.lookAt(target.x, target.y, target.z);
+    this.orbit.update();
+  }
+
+  private paintAtmosphere() {
+    const doc = this.atmosphereDoc;
+    if (this.weather === "rain") {
+      this.scene.background = new THREE.Color("#0c0e14");
+      this.scene.fog = new THREE.Fog("#12161e", 8, 30);
+      return;
+    }
+    if (!doc) return;
+    this.scene.background = new THREE.Color(doc.background);
+    this.scene.fog = doc.fog.enabled ? new THREE.Fog(doc.fog.color, doc.fog.near, doc.fog.far) : null;
+  }
+
+  private ensureRain() {
+    if (this.rain) return;
+    const positions = new Float32Array(RAIN_COUNT * 3);
+    const speeds = new Float32Array(RAIN_COUNT);
+    const drift = new Float32Array(RAIN_COUNT);
+    const camera = this.editorCamera;
+    for (let i = 0; i < RAIN_COUNT; i++) {
+      positions[i * 3] = camera.position.x + (unit(i) - 0.5) * 26;
+      positions[i * 3 + 1] = camera.position.y - 2 + unit(i + 19) * 16;
+      positions[i * 3 + 2] = camera.position.z + (unit(i + 41) - 0.5) * 26;
+      speeds[i] = 9 + unit(i + 7) * 11;
+      drift[i] = (unit(i + 13) - 0.35) * 2.6;
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    const map = rainStreakTexture();
+    const material = new THREE.PointsMaterial({
+      color: "#d5e4f6",
+      map: map ?? undefined,
+      transparent: true,
+      opacity: 0.7,
+      size: 2.45,
+      depthWrite: false,
+      sizeAttenuation: true,
+    });
+    const points = new THREE.Points(geometry, material);
+    points.frustumCulled = false;
+    points.renderOrder = 10;
+    points.raycast = () => {};
+    this.scene.add(points);
+    this.rain = points;
+    this.rainSpeeds = speeds;
+    this.rainDrift = drift;
+    this.rainBasis(camera);
+    const seeded = geometry.getAttribute("position") as THREE.BufferAttribute;
+    const seededArr = seeded.array as Float32Array;
+    for (let i = 0; i < RAIN_COUNT; i++) this.scatterDrop(i, seededArr, camera);
+    seeded.needsUpdate = true;
+  }
+
+  private rainBasis(camera: THREE.Camera) {
+    camera.getWorldDirection(this.rainForward);
+    this.rainRight.crossVectors(this.rainForward, camera.up);
+    if (this.rainRight.lengthSq() < 1e-6) this.rainRight.set(1, 0, 0);
+    this.rainRight.normalize();
+    this.rainUp.crossVectors(this.rainRight, this.rainForward).normalize();
+  }
+
+  private scatterDrop(index: number, arr: Float32Array, camera: THREE.Camera) {
+    const depth = 1.1 + unit(index * 1.17 + this.animTime * 2.4) * 15;
+    const across = (unit(index * 1.37 + 2.2) - 0.5) * 18;
+    const lift = (unit(index * 1.91 + 5.5) - 0.22) * 11;
+    this.rainSpot.copy(camera.position);
+    this.rainSpot.addScaledVector(this.rainForward, depth);
+    this.rainSpot.addScaledVector(this.rainRight, across);
+    this.rainSpot.addScaledVector(this.rainUp, lift);
+    arr[index * 3] = this.rainSpot.x;
+    arr[index * 3 + 1] = this.rainSpot.y;
+    arr[index * 3 + 2] = this.rainSpot.z;
+  }
+
+  private updateRain(dt: number) {
+    if (this.weather !== "rain" || !this.rain || !this.rainSpeeds || !this.rainDrift) return;
+    const camera = this.activeCamera();
+    this.rainBasis(camera);
+    const cx = camera.position.x;
+    const cy = camera.position.y;
+    const cz = camera.position.z;
+    const fx = this.rainForward.x;
+    const fy = this.rainForward.y;
+    const fz = this.rainForward.z;
+    const attr = this.rain.geometry.getAttribute("position") as THREE.BufferAttribute;
+    const arr = attr.array as Float32Array;
+    const step = Math.min(Math.max(dt, 0.016), 0.05);
+    for (let i = 0; i < RAIN_COUNT; i++) {
+      const x = arr[i * 3] + this.rainDrift[i] * step;
+      const y = arr[i * 3 + 1] - this.rainSpeeds[i] * step;
+      const z = arr[i * 3 + 2] + this.rainDrift[i] * 0.28 * step;
+      const depth = (x - cx) * fx + (y - cy) * fy + (z - cz) * fz;
+      if (y < -0.15 || depth < 0.35 || depth > 17.5) {
+        this.scatterDrop(i, arr, camera);
+        continue;
+      }
+      arr[i * 3] = x;
+      arr[i * 3 + 1] = y;
+      arr[i * 3 + 2] = z;
+    }
+    attr.needsUpdate = true;
+    this.flash = Math.max(0, this.flash - step);
+    const cycle = this.animTime % 6.4;
+    if (cycle < 0.07 || (cycle > 0.16 && cycle < 0.22)) this.flash = 0.08;
+    this.renderer.toneMappingExposure = this.flash > 0 ? 1.92 : 0.9;
+  }
+
+  private glossGround(wet: boolean) {
+    const runtime = this.runtimes.get("ground");
+    if (!runtime) return;
+    runtime.root.traverse((obj) => {
+      if (!(obj instanceof THREE.Mesh)) return;
+      const material = obj.material;
+      if (!(material instanceof THREE.MeshStandardMaterial) || material.userData.portrait) return;
+      const data = material.userData;
+      if (data.baseRough === undefined) data.baseRough = material.roughness;
+      if (data.baseMetal === undefined) data.baseMetal = material.metalness;
+      if (data.baseEnv === undefined) data.baseEnv = material.envMapIntensity;
+      material.roughness = wet ? Math.min(data.baseRough as number, 0.22) : (data.baseRough as number);
+      material.metalness = wet ? Math.max(data.baseMetal as number, 0.24) : (data.baseMetal as number);
+      material.envMapIntensity = wet ? 1.5 : (data.baseEnv as number);
+    });
+  }
+
   setMode(mode: "edit" | "play") {
     if (mode === this.mode) return;
     this.mode = mode;
     const editing = mode === "edit";
-    this.grid.visible = editing;
+    this.grid.visible = editing && this.weather !== "rain";
     this.transform.enabled = editing;
     this.orbit.enabled = editing;
     for (const runtime of this.runtimes.values()) {
@@ -618,6 +796,16 @@ export class HelixEngine {
     this.orbit.dispose();
     this.transform.dispose();
     this.composer.dispose();
+    if (this.rain) {
+      this.rain.geometry.dispose();
+      const material = this.rain.material;
+      if (material instanceof THREE.Material) {
+        const map = (material as THREE.PointsMaterial).map;
+        map?.dispose();
+        material.dispose();
+      }
+      this.scene.remove(this.rain);
+    }
     for (const id of [...this.runtimes.keys()]) this.destroyRuntime(id);
     for (const geo of this.geos.values()) geo.dispose();
     this.renderer.dispose();
@@ -652,6 +840,7 @@ export class HelixEngine {
     for (const runtime of this.runtimes.values()) runtime.mixer?.update(dt);
     this.poseCharacters();
     this.facePortraits(this.activeCamera());
+    this.updateRain(dt);
     this.syncHelpers();
     const camera = this.activeCamera();
     this.renderPass.camera = camera;

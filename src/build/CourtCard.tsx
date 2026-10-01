@@ -76,7 +76,8 @@ export function CourtCard() {
           components: [{ type: "light", light: "point", color: "#d4c4ff", intensity: 16, castShadow: false }],
         }),
       );
-      setNote("Moon court raised. Five elves stand before the moonstone hall.");
+      useEditor.getState().setWeather("rain");
+      setNote("Moon court raised. Rain is falling on the five elves.");
     } catch {
       setNote("The court could not be raised.");
     } finally {

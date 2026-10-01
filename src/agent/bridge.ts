@@ -12,6 +12,7 @@ export type HelixAgent = {
   scene: () => ReturnType<typeof sceneView>;
   world: () => ReturnType<typeof worldView>;
   textures: () => Array<{ id: string; label: string; family: string; rate: number }>;
+  weather: (mode?: "clear" | "rain") => "clear" | "rain";
   validate: () => ReturnType<typeof validate>;
   query: (args: { x: number; z: number; radius: number; kind?: string }) => ReturnType<typeof queryNear>;
   reach: (from: string, to: string) => ReturnType<typeof canReach>;
@@ -49,6 +50,10 @@ export function installHelix() {
     },
     world: () => worldView(useEditor.getState().doc),
     textures: () => PACKETS.map((packet) => ({ id: packet.id, label: packet.label, family: packet.family, rate: packet.rate })),
+    weather: (mode) => {
+      if (mode === "rain" || mode === "clear") useEditor.getState().setWeather(mode);
+      return useEditor.getState().weather;
+    },
     validate: () => validate(useEditor.getState().doc),
     query: ({ x, z, radius, kind }) => queryNear(useEditor.getState().doc, x, z, radius, kind),
     reach: (from, to) => canReach(useEditor.getState().doc, from, to),

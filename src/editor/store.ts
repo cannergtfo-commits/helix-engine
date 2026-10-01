@@ -31,6 +31,7 @@ type EditorState = {
   lastBurst: Burst | null;
   logSeq: number;
   beat: number;
+  weather: "clear" | "rain";
   hydrate: () => void;
   select: (id: string | null) => void;
   setTool: (tool: Tool) => void;
@@ -58,6 +59,7 @@ type EditorState = {
   play: () => void;
   stop: () => void;
   setPaused: (paused: boolean) => void;
+  setWeather: (weather: "clear" | "rain") => void;
   log: (level: LogLine["level"], text: string) => void;
   clearLogs: () => void;
 };
@@ -102,6 +104,7 @@ export const useEditor = create<EditorState>((set, get) => ({
   lastBurst: null,
   logSeq: 1,
   beat: 0,
+  weather: "clear",
 
   hydrate: () => {
     const starter = createStarterScene();
@@ -291,6 +294,7 @@ export const useEditor = create<EditorState>((set, get) => ({
     })),
 
   setPaused: (paused) => set({ paused }),
+  setWeather: (weather) => set({ weather }),
 
   log: (level, text) =>
     set((state) => ({
