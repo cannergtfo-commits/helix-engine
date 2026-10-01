@@ -38,6 +38,8 @@ engine.start();
 
 A scene is version `1` JSON: gravity, fog, and entities with transform plus components (`mesh`, `light`, `camera`, `collider`, `rigidbody`, `script`).
 
+Helix is directed by Grok. In the library, describe a scene and press Direct this scene. The call runs on the server, places models from the CC0 catalog, and writes the story beats and concept. The warden, ground, and lights stay so the result is playable. Box, sphere, and the other primitives are tucked under Add → Shapes.
+
 Helix 0.3 adds a CC0 model shelf. The files in `public/library` are AI-assisted game models published under CC0 1.0 by their contributors on [3dassets.dev](https://3dassets.dev). They are public domain: use them in a game, change them, ship them. No attribution is required. Drag a model from Library onto the floor, or use Add. A model keeps its materials; the primitive color does not tint it.
 
 The files here are the engine and the editor. `src/routes` and `src/router.tsx` are the host integration: they import the application shell, so they compile inside the Helix app rather than as a bare package. Extend `src/engine` and `src/editor` to keep shipping it.

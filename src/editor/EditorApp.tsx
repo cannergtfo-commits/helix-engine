@@ -38,7 +38,6 @@ import {
   lightEntity,
   mesh,
   parseScene,
-  playerEntity,
   primitiveEntity,
   script,
   type Behavior,
@@ -240,7 +239,7 @@ function Toolbar({ onImport, onPlay }: { onImport: () => void; onPlay: () => voi
         <span className="grid h-7 w-7 place-items-center rounded-md bg-accent text-xs font-semibold text-accent-ink">H</span>
         <div className="leading-tight">
           <div className="text-sm font-semibold tracking-wide">Helix</div>
-          <div className="text-xs text-muted">Studio</div>
+          <div className="text-xs whitespace-nowrap text-muted">AI studio</div>
         </div>
       </div>
       <input
@@ -326,18 +325,20 @@ function AddMenu() {
         Add
       </summary>
       <div className="absolute right-0 z-20 mt-1 w-44 rounded-md border border-line bg-surface p-1 shadow-lg">
-        <AddItem icon={<Box className="size-4" />} label="Box" onClick={() => add(primitiveEntity("box"))} />
-        <AddItem icon={<Circle className="size-4" />} label="Sphere" onClick={() => add(primitiveEntity("sphere"))} />
-        <AddItem icon={<Cylinder className="size-4" />} label="Cylinder" onClick={() => add(primitiveEntity("cylinder"))} />
-        <AddItem icon={<Cone className="size-4" />} label="Cone" onClick={() => add(primitiveEntity("cone"))} />
         <AddItem label="Warden" onClick={() => add(characterEntity("warden", { player: true }))} />
         <AddItem label="Relay" onClick={() => add(characterEntity("relay", { player: false, clip: "wave" }))} />
-        <AddItem label="Rover" onClick={() => add(playerEntity())} />
         <AddItem icon={<SunMedium className="size-4" />} label="Sun" onClick={() => add(lightEntity("directional"))} />
         <AddItem icon={<Lightbulb className="size-4" />} label="Point light" onClick={() => add(lightEntity("point"))} />
         <AddItem icon={<Camera className="size-4" />} label="Camera" onClick={() => add(cameraEntity())} />
         <AddItem label="Relic hall" onClick={() => useEditor.getState().loadDoc(createStarterScene())} />
         <AddItem label="Empty scene" onClick={() => useEditor.getState().loadDoc(emptyScene())} />
+        <details className="mt-1 border-t border-line pt-1">
+          <summary className="cursor-pointer px-2 py-1 text-xs text-muted">Shapes</summary>
+          <AddItem icon={<Box className="size-4" />} label="Box" onClick={() => add(primitiveEntity("box"))} />
+          <AddItem icon={<Circle className="size-4" />} label="Sphere" onClick={() => add(primitiveEntity("sphere"))} />
+          <AddItem icon={<Cylinder className="size-4" />} label="Cylinder" onClick={() => add(primitiveEntity("cylinder"))} />
+          <AddItem icon={<Cone className="size-4" />} label="Cone" onClick={() => add(primitiveEntity("cone"))} />
+        </details>
       </div>
     </details>
   );
@@ -714,13 +715,12 @@ function Console() {
 function Guide() {
   return (
     <div className="space-y-3 px-3 py-3 text-sm text-muted">
-      <p className="text-fg">Helix Studio builds a playable room. The library starts with free CC0 models you can drop beside the hall.</p>
+      <p className="text-fg">Helix is directed. Describe a scene and Grok builds it from the catalog, then you play it.</p>
       <ol className="list-decimal space-y-1 pl-4">
-        <li>Search the model shelf for a dragon, cottage, or sword. Drag it onto the floor, or tap Add.</li>
-        <li>Drop this set places a handful beside the hall so you can orbit them.</li>
-        <li>Select a block character and apply a clip from Field or Ritual.</li>
-        <li>Chain: claim the Courtyard Key, then Play. W drives, A turns left, D turns right.</li>
-        <li>Touch the brass relic to collect it. The archive door opens only if the wallet holds the key.</li>
+        <li>In Library, write a sentence or pick a starter, then press Direct this scene.</li>
+        <li>The hall props are replaced. The warden, ground, and lights stay.</li>
+        <li>Open Story and Concept to read the beats and the pitch the director wrote.</li>
+        <li>Press Play. W drives, A turns left, D turns right.</li>
       </ol>
       <p>Studio version {HELIX_VERSION}. Samples never leave this browser and never send a transaction.</p>
       <pre className="overflow-auto rounded-md bg-bg p-2 font-mono text-xs text-fg">{`api.rotate(0, 40 * api.dt, 0);

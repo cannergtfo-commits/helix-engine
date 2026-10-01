@@ -64,9 +64,9 @@ export function ModelShelf({ onPlaced }: { onPlaced?: () => void }) {
   return (
     <section className="space-y-2">
       <div className="px-1">
-        <h2 className="text-xs tracking-wide text-muted uppercase">Free models</h2>
+        <h2 className="text-xs tracking-wide text-muted uppercase">Catalog</h2>
         <p className="mt-1 text-xs text-muted">
-          {assets.length} CC0 models, AI-assisted. Drag one onto the floor, or add it beside the hall.
+          {assets.length} CC0 models the director can place. Search if you want to drop one by hand.
         </p>
       </div>
       <input
@@ -94,7 +94,7 @@ export function ModelShelf({ onPlaced }: { onPlaced?: () => void }) {
       </div>
       {shown.length > 0 ? (
         <button type="button" className="h-10 w-full rounded-md border border-line text-sm text-fg" onClick={dropSet}>
-          Drop this set beside the hall
+          Drop this set on the ground
         </button>
       ) : null}
       {failed ? <p className="px-1 text-xs text-muted">The model library did not load.</p> : null}

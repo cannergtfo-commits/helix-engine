@@ -16,6 +16,7 @@ import {
 } from "./catalog";
 import { applyClip, bindChainToSelection, chainProp, entityFromDrag, placeInScene } from "./place";
 import { ModelShelf } from "./ModelShelf";
+import { Director } from "./Director";
 import { shortAddress, useWallet } from "./wallet";
 
 export type Workspace = "design" | "story" | "concept" | "chain";
@@ -71,8 +72,9 @@ export function Library({ onPlaced }: { onPlaced?: () => void }) {
   const assets = useWallet((state) => state.assets);
   return (
     <div className="min-h-0 flex-1 space-y-4 overflow-auto px-2 py-3">
+      <Director />
       <ModelShelf onPlaced={onPlaced} />
-      <p className="px-1 text-xs text-muted">Or drag a block character, a clip, or a simple prop. Tap Add if dragging is awkward.</p>
+      <p className="px-1 text-xs text-muted">The shelf is the director’s vocabulary. Drag a model if you want to place one yourself.</p>
       <Section title="Characters">
         {KITS.map((kit) => (
           <Card
