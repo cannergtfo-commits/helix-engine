@@ -2,6 +2,8 @@
 
 Helix is a browser game engine: a scene editor, a WebGL renderer, a component model, and a playable runtime. Scenes are JSON. The same document you edit is the document you simulate.
 
+[Watch the 10-second demo](demo/helix-demo.mp4) — the brick cottage and the warden, from the live scene.
+
 ## Editor
 
 Open the app and use the courtyard demo.
