@@ -1,0 +1,43 @@
+# Helix
+
+Helix is a browser game engine: a scene editor, a WebGL renderer, a component model, and a playable runtime. Scenes are JSON. The same document you edit is the document you simulate.
+
+## Editor
+
+Open the app and use the courtyard demo.
+
+- **Play** simulates. **Stop** restores the scene to the moment you pressed Play.
+- **W** drives the rover, **A** turns left, **D** turns right, **S** brakes. Heading is rotation Y. `0` faces world −Z.
+- **W / E / R** switch move, rotate, and scale while editing. **F** frames the selection.
+- Add a mesh, a collider, and a rigidbody to make a dynamic object.
+- Behaviors: `spin`, `bob`, `orbit`, `player`, and `custom`.
+- Export downloads a `.helix.json` file. Import loads one. The scene also autosaves in the browser.
+
+Custom scripts run in the page and receive one argument, `api`:
+
+```js
+api.rotate(0, 40 * api.dt, 0);
+api.translate(0, 0, -2 * api.dt);
+api.setColor("#c9863a");
+```
+
+`api.dt` is seconds. `api.time` is seconds since play started. `rotate` is degrees.
+
+## Code
+
+The runtime lives in `src/engine`.
+
+```ts
+import { HelixEngine, createStarterScene } from "./src/engine";
+
+const engine = new HelixEngine(canvas, hooks);
+engine.apply(createStarterScene());
+engine.setMode("play");
+engine.start();
+```
+
+A scene is version `1` JSON: gravity, fog, and entities with transform plus components (`mesh`, `light`, `camera`, `collider`, `rigidbody`, `script`).
+
+## What this version is
+
+Helix 0.1 is a shippable editor and runtime, not a finished Unity replacement. It is the base to keep extending: nested hierarchy, asset pipeline, animation clips, and a packaged player build are the next layers. The component document is the stable surface so later versions can load scenes saved now.

@@ -1,0 +1,11 @@
+{
+  "name": "helix-engine",
+  "version": "0.1.0",
+  "private": false,
+  "description": "Helix is a browser game engine: scene editor, WebGL renderer, components, physics, and a playable runtime.",
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "three": "0.186.1"
+  }
+}
