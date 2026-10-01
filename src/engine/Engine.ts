@@ -86,7 +86,7 @@ type Runtime = {
 function signature(entity: EntityData): string {
   return entity.components
     .map((component) => {
-      if (component.type === "mesh") return `mesh:${component.src ?? component.primitive}:${component.finish ?? ""}`;
+      if (component.type === "mesh") return `mesh:${component.src ?? component.primitive}:${component.finish ?? ""}:${component.portrait ?? ""}`;
       if (component.type === "light") return `light:${component.light}`;
       if (component.type === "camera") return "camera";
       if (component.type === "character") return `character:${component.kit}`;
@@ -219,6 +219,7 @@ export class HelixEngine {
   private readonly pointer = new THREE.Vector2();
   private readonly desired = new THREE.Vector3();
   private readonly look = new THREE.Vector3();
+  private readonly portraitAt = new THREE.Vector3();
   private readonly keySet = new Set<string>();
   private readonly onKeyDown: (event: KeyboardEvent) => void;
   private readonly onKeyUp: (event: KeyboardEvent) => void;
@@ -650,6 +651,7 @@ export class HelixEngine {
     this.animTime += dt;
     for (const runtime of this.runtimes.values()) runtime.mixer?.update(dt);
     this.poseCharacters();
+    this.facePortraits(this.activeCamera());
     this.syncHelpers();
     const camera = this.activeCamera();
     this.renderPass.camera = camera;
@@ -966,6 +968,43 @@ export class HelixEngine {
     this.syncMaterials(runtime, entity);
   }
 
+  private facePortraits(camera: THREE.Camera) {
+    for (const runtime of this.runtimes.values()) {
+      runtime.root.traverse((obj) => {
+        if (!(obj instanceof THREE.Mesh) || obj.userData.portrait !== true) return;
+        const y = obj.getWorldPosition(this.portraitAt).y;
+        obj.lookAt(camera.position.x, y, camera.position.z);
+      });
+    }
+  }
+
+  private mountPortrait(runtime: Runtime, src: string) {
+    const geo = new THREE.PlaneGeometry(0.74, 1.84);
+    geo.rotateY(Math.PI);
+    const material = new THREE.MeshStandardMaterial({
+      color: "#ffffff",
+      roughness: 0.8,
+      metalness: 0.02,
+      transparent: true,
+      alphaTest: 0.2,
+      side: THREE.DoubleSide,
+    });
+    material.userData.portrait = true;
+    const mesh = new THREE.Mesh(geo, material);
+    mesh.userData.portrait = true;
+    mesh.castShadow = false;
+    mesh.receiveShadow = false;
+    runtime.root.add(mesh);
+    runtime.disposables.push(geo, material);
+    const loader = new THREE.TextureLoader();
+    loader.load(src, (texture) => {
+      texture.colorSpace = THREE.SRGBColorSpace;
+      material.map = texture;
+      material.needsUpdate = true;
+      runtime.disposables.push(texture);
+    });
+  }
+
   private buildContent(runtime: Runtime, entity: EntityData) {
     const meshComponent = findComponent(entity, "mesh");
     const character = findComponent(entity, "character");
@@ -980,6 +1019,8 @@ export class HelixEngine {
       runtime.disposables.push(...built.disposables);
     } else if (meshComponent?.src) {
       this.mountModel(runtime, entity, meshComponent.src, meshComponent.fit || 1.2);
+    } else if (meshComponent?.portrait) {
+      this.mountPortrait(runtime, meshComponent.portrait);
     } else if (meshComponent?.primitive === "rover") {
       const built = buildRover();
       tag(built.group, entity.id);
@@ -1076,7 +1117,7 @@ export class HelixEngine {
     const meshComponent = findComponent(entity, "mesh");
     if (meshComponent && meshComponent.primitive !== "rover" && !meshComponent.src) {
       runtime.root.traverse((obj) => {
-        if (obj instanceof THREE.Mesh && obj.material instanceof THREE.MeshStandardMaterial && !obj.userData.proxy && obj.material.userData.finish !== true) {
+        if (obj instanceof THREE.Mesh && obj.material instanceof THREE.MeshStandardMaterial && !obj.userData.proxy && obj.material.userData.finish !== true && obj.material.userData.portrait !== true) {
           obj.material.color.set(meshComponent.color);
           obj.material.metalness = meshComponent.metalness;
           obj.material.roughness = meshComponent.roughness;

@@ -61,6 +61,8 @@ export type MeshComponent = {
   fit?: number;
   /** Texture packet id, such as brick, ashlar, or oak. */
   finish?: string;
+  /** Public path to a cutout portrait. The plane faces the camera. */
+  portrait?: string;
 };
 
 export type LightKind = "ambient" | "directional" | "point" | "spot";

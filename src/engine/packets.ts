@@ -139,6 +139,20 @@ export const PACKETS: Packet[] = [
   { id: "street", label: "Street cobble", family: "ground", color: "#6a6660", rate: 22, metal: 0.03, rough: 0.86, normal: 0.6, env: 0.14, pattern: "cobble", face: "#76726c", seam: "#2a2824" },
   { id: "pebble", label: "Pebble", family: "ground", color: "#b0a898", rate: 12, metal: 0.04, rough: 0.82, normal: 0.5, env: 0.16, pattern: "speckle", face: "#b8b0a0", seam: "#5a5448" },
   { id: "dark-gravel", label: "Dark gravel", family: "ground", color: "#3a3c40", rate: 12, metal: 0.04, rough: 0.9, normal: 0.5, env: 0.14, pattern: "grit", face: "#424448", seam: "#1a1c20" },
+  { id: "moonstone", label: "Moonstone", family: "wall", color: "#c5ced6", rate: 68, metal: 0.08, rough: 0.42, normal: 0.28, env: 0.55, pattern: "ashlar", face: "#d0d8df", seam: "#6a7580", invert: true },
+  { id: "night-ashlar", label: "Night ashlar", family: "wall", color: "#2a3138", rate: 58, metal: 0.06, rough: 0.7, normal: 0.45, env: 0.28, pattern: "ashlar", face: "#343c44", seam: "#12161a", invert: true },
+  { id: "ivy-stone", label: "Ivy stone", family: "wall", color: "#4a5850", rate: 46, metal: 0.04, rough: 0.82, normal: 0.55, env: 0.18, pattern: "rubble", face: "#54685c", seam: "#1c2820", invert: true },
+  { id: "wisteria", label: "Wisteria plaster", family: "wall", color: "#8a7a90", rate: 34, metal: 0.02, rough: 0.86, normal: 0.2, env: 0.16, pattern: "plaster", face: "#94829a", seam: "#5a4a64" },
+  { id: "nightwood", label: "Nightwood", family: "floor", color: "#2a221c", rate: 36, metal: 0.05, rough: 0.62, normal: 0.4, env: 0.22, pattern: "plank", face: "#342820", seam: "#120e0c" },
+  { id: "dusk-velvet", label: "Dusk velvet", family: "floor", color: "#4a2840", rate: 40, metal: 0.02, rough: 0.92, normal: 0.18, env: 0.1, pattern: "weave", face: "#5a3050", seam: "#1e1018" },
+  { id: "moon-tile", label: "Moon tile", family: "floor", color: "#b7c0c8", rate: 44, metal: 0.06, rough: 0.38, normal: 0.22, env: 0.4, pattern: "tile", face: "#c5ced4", seam: "#5a646c" },
+  { id: "star-hex", label: "Star hex", family: "floor", color: "#1e2430", rate: 48, metal: 0.08, rough: 0.4, normal: 0.25, env: 0.35, pattern: "hex", face: "#262c3a", seam: "#c8b48a" },
+  { id: "moon-slate", label: "Moon slate", family: "roof", color: "#3a4550", rate: 42, metal: 0.14, rough: 0.55, normal: 0.48, env: 0.4, pattern: "shingle", face: "#44505c", seam: "#14181c", invert: true },
+  { id: "silverleaf", label: "Silverleaf", family: "metal", color: "#d5dbe2", rate: 88, metal: 0.92, rough: 0.18, normal: 0.12, env: 1.15, pattern: "seam", face: "#e0e6ec", seam: "#6a7278" },
+  { id: "thorn-iron", label: "Thorn iron", family: "metal", color: "#3a343c", rate: 52, metal: 0.74, rough: 0.4, normal: 0.28, env: 0.6, pattern: "seam", face: "#463e48", seam: "#1a121c" },
+  { id: "violet-glass", label: "Violet glass", family: "metal", color: "#6a5888", rate: 60, metal: 0.04, rough: 0.08, normal: 0.05, env: 1.1, glass: true, pattern: "plaster", face: "#7a6898", seam: "#d4c8e4" },
+  { id: "moon-glass", label: "Moon glass", family: "metal", color: "#c5d4e0", rate: 56, metal: 0.04, rough: 0.06, normal: 0.04, env: 1.15, glass: true, pattern: "plaster", face: "#d0deea", seam: "#eef4f8" },
+  { id: "night-moss", label: "Night moss", family: "ground", color: "#1c3024", rate: 10, metal: 0.02, rough: 0.94, normal: 0.4, env: 0.1, pattern: "grass", face: "#243828", seam: "#101810" },
 ];
 
 const swatches = new Map<string, string>();

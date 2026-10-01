@@ -4,7 +4,7 @@ Helix is a browser game engine: a scene editor, a WebGL renderer, a component mo
 
 [Watch the 10-second demo](demo/helix-demo.mp4) — the brick cottage and the warden, from the live scene.
 
-One hundred and twenty-one texture packets ship with the studio: brick, stone, plaster, timber, tile, roofs, glass, metals, and ground. `helix.textures()` lists them. Pass an id as `material` on a room or wall, or click one in Textures.
+One hundred and thirty-five texture packets ship with the studio, including a dark-fantasy elven set: moonstone, nightwood, dusk velvet, silverleaf, and violet glass. `helix.textures()` lists them. The Moon court places five elves — Vaelith, Seryne, Ilyra, Nimrael, and Orinel — in front of a moonstone hall.
 
 ## Editor
 
