@@ -979,14 +979,15 @@ export class HelixEngine {
   }
 
   private mountPortrait(runtime: Runtime, src: string) {
-    const geo = new THREE.PlaneGeometry(0.74, 1.84);
+    const geo = new THREE.PlaneGeometry(0.82, 1.86);
     geo.rotateY(Math.PI);
     const material = new THREE.MeshStandardMaterial({
       color: "#ffffff",
-      roughness: 0.8,
-      metalness: 0.02,
+      roughness: 0.72,
+      metalness: 0.04,
       transparent: true,
-      alphaTest: 0.2,
+      alphaTest: 0.06,
+      depthWrite: true,
       side: THREE.DoubleSide,
     });
     material.userData.portrait = true;
@@ -999,6 +1000,15 @@ export class HelixEngine {
     const loader = new THREE.TextureLoader();
     loader.load(src, (texture) => {
       texture.colorSpace = THREE.SRGBColorSpace;
+      const image = texture.image as { width?: number; height?: number };
+      if (image?.width && image?.height) {
+        const fitted = new THREE.PlaneGeometry(1.86 * (image.width / image.height), 1.86);
+        fitted.rotateY(Math.PI);
+        mesh.geometry = fitted;
+        const index = runtime.disposables.indexOf(geo);
+        if (index >= 0) runtime.disposables[index] = fitted;
+        geo.dispose();
+      }
       material.map = texture;
       material.needsUpdate = true;
       runtime.disposables.push(texture);

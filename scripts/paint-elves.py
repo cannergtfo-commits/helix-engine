@@ -297,7 +297,7 @@ def crop(im: Image.Image) -> Image.Image:
 
 
 def main():
-    out = "/workspace/public/elves"
+    out = "/workspace/artifacts/elf-draft"
     import os
 
     os.makedirs(out, exist_ok=True)

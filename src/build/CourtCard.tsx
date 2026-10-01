@@ -4,11 +4,11 @@ import { makeEntity, mesh, vec } from "@/engine/document";
 import { packetById } from "@/engine/packets";
 
 export const ELVES = [
-  { id: "vaelith", name: "Vaelith", title: "Moon priestess", src: "/elves/vaelith.png", x: -2.2 },
-  { id: "seryne", name: "Seryne", title: "Dusk coat", src: "/elves/seryne.png", x: -1.1 },
-  { id: "ilyra", name: "Ilyra", title: "Green court", src: "/elves/ilyra.png", x: 0 },
-  { id: "nimrael", name: "Nimrael", title: "Night sash", src: "/elves/nimrael.png", x: 1.1 },
-  { id: "orinel", name: "Orinel", title: "Indigo scholar", src: "/elves/orinel.png", x: 2.2 },
+  { id: "vaelith", name: "Vaelith", title: "Moon priestess", src: "/elves/vaelith.png?v=2", x: -2.4 },
+  { id: "seryne", name: "Seryne", title: "Dusk coat", src: "/elves/seryne.png?v=2", x: -1.2 },
+  { id: "ilyra", name: "Ilyra", title: "Green court", src: "/elves/ilyra.png?v=2", x: 0 },
+  { id: "nimrael", name: "Nimrael", title: "Night sash", src: "/elves/nimrael.png?v=2", x: 1.2 },
+  { id: "orinel", name: "Orinel", title: "Indigo scholar", src: "/elves/orinel.png?v=2", x: 2.4 },
 ] as const;
 
 function paint(id: string, material: string) {
@@ -29,7 +29,7 @@ function paint(id: string, material: string) {
 function figure(id: string, name: string, src: string, x: number, z: number) {
   return makeEntity(name, {
     id,
-    position: vec(x, 0.92, z),
+    position: vec(x, 0.93, z),
     components: [mesh("plane", "#ffffff", { portrait: src, metalness: 0.02, roughness: 0.8, castShadow: false, receiveShadow: false })],
   });
 }
