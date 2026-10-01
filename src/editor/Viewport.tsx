@@ -47,13 +47,28 @@ export function Viewport() {
             label: event.label,
             symbol: event.symbol,
           });
+          useWallet.setState({ note: `${event.label} is in the wallet.` });
           editor.log("info", `${event.label} is in the studio wallet.`);
           if (event.role === "collectible") editor.advanceBeat();
+        } else if (event.type === "spent") {
+          useWallet.getState().debit({
+            chain: event.chain,
+            standard: event.standard,
+            contract: event.contract,
+            tokenId: event.tokenId,
+            amount: event.amount,
+            label: event.label,
+            symbol: event.symbol,
+          });
+          editor.log("info", `Spent ${event.amount} ${event.symbol} at ${event.label}.`);
+          editor.advanceBeat();
         } else if (event.type === "unlock") {
+          useWallet.setState({ note: `${event.label} opened.` });
           editor.log("info", `${event.label} opened.`);
           editor.advanceBeat();
         } else {
-          editor.log("warn", `${event.label} needs ${event.symbol}. Claim it on the Chain tab.`);
+          useWallet.setState({ note: `${event.label} needs ${event.amount} ${event.symbol}.` });
+          editor.log("warn", `${event.label} needs ${event.amount} ${event.symbol}.`);
         }
       },
     });
@@ -159,16 +174,18 @@ function PlayCard() {
   const story = useEditor((state) => state.doc.story);
   const beat = useEditor((state) => state.beat);
   const holdings = useWallet((state) => state.holdings);
+  const note = useWallet((state) => state.note);
   const current = story[beat] ?? story[0];
   if (!current) return null;
-  const symbols = holdings.map((holding) => holding.symbol).slice(0, 3).join(" · ");
+  const symbols = holdings.map((holding) => `${holding.symbol} ${holding.amount}`).slice(0, 3).join(" · ");
   return (
     <div className="pointer-events-auto absolute top-14 left-3 max-w-64 rounded-md border border-line bg-bg/90 p-3">
       <div className="text-xs tracking-wide text-muted uppercase">{current.kind}</div>
       <div className="mt-1 text-sm font-medium text-fg">{current.title}</div>
       <p className="mt-1 text-xs text-muted">{current.body}</p>
-      <div className="mt-2 flex items-center justify-between gap-2">
-        <span className="truncate font-mono text-xs text-muted">{symbols || "Wallet empty"}</span>
+      <p className="mt-2 truncate font-mono text-xs text-fg">{symbols || "Wallet empty"}</p>
+      {note ? <p className="mt-1 text-xs text-accent">{note}</p> : null}
+      <div className="mt-2 flex justify-end">
         {beat < story.length - 1 ? (
           <button type="button" className="h-8 shrink-0 rounded-md bg-raised px-2 text-xs text-fg" onClick={() => useEditor.getState().advanceBeat()}>
             Next

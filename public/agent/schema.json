@@ -18,14 +18,14 @@
     { "op": "place", "fields": ["asset", "id", "x", "z", "yaw"], "does": "asset is a catalog id, an exact title, or a unique fragment such as knight." },
     { "op": "spawn", "fields": ["kit", "id", "x", "z", "yaw", "player"], "does": "kit is warden or relay." },
     { "op": "move", "fields": ["id", "x", "y", "z", "yaw"] },
+    { "op": "rule", "fields": ["role", "token", "id", "x", "z", "contract", "chain", "standard", "tokenId", "symbol", "amount", "target"], "does": "role is gate, loot, currency, skin, or vendor. token is a symbol such as KEY, or pass a 0x contract. skin binds to target or the warden." },
+    { "op": "grant", "fields": ["token"], "does": "Puts a sample token in the studio wallet so a rule can be tested. Does not send a transaction." },
     { "op": "remove", "fields": ["id"] },
     { "op": "select", "fields": ["id"] }
   ],
   "example": [
     { "op": "clear" },
-    { "op": "scene", "name": "Bot yard" },
-    { "op": "place", "id": "gate", "asset": "knight", "x": 2, "z": -2, "yaw": 180 },
-    { "op": "place", "id": "hoard", "asset": "Treasure chest", "x": -2, "z": -2 },
-    { "op": "story", "beats": [{ "title": "The gate", "body": "The knight does not move. The chest does.", "kind": "setup", "speaker": "Yard" }] }
+    { "op": "rule", "id": "archive-door", "role": "gate", "token": "KEY", "x": 0, "z": -3 },
+    { "op": "grant", "token": "KEY" }
   ]
 }

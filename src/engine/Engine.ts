@@ -481,10 +481,41 @@ export class HelixEngine {
             this.hooks.onChain?.({ type: "unlock", id: runtime.id, label: chain.label });
           } else if (!runtime.chainNoted) {
             runtime.chainNoted = true;
-            this.hooks.onChain?.({ type: "locked", id: runtime.id, label: chain.label, symbol: chain.symbol });
+            this.hooks.onChain?.({ type: "locked", id: runtime.id, label: chain.label, symbol: chain.symbol, amount: chain.amount || 1 });
           }
         } else {
           runtime.chainNoted = false;
+        }
+        continue;
+      }
+      if (chain.role === "vendor") {
+        if (runtime.consumed || dist > 1.6) continue;
+        const price = {
+          chain: chain.chain,
+          standard: chain.standard,
+          contract: chain.contract,
+          tokenId: chain.tokenId,
+          amount: chain.amount || 1,
+        };
+        if (this.hooks.holdsToken?.(price)) {
+          runtime.consumed = true;
+          runtime.root.visible = false;
+          const body = this.bodies.find((item) => item.id === runtime.id);
+          if (body) body.pos.y = -40;
+          this.hooks.onChain?.({
+            type: "spent",
+            id: runtime.id,
+            label: chain.label,
+            symbol: chain.symbol,
+            chain: chain.chain,
+            standard: chain.standard,
+            contract: chain.contract,
+            tokenId: chain.tokenId,
+            amount: price.amount,
+          });
+        } else if (!runtime.chainNoted) {
+          runtime.chainNoted = true;
+          this.hooks.onChain?.({ type: "locked", id: runtime.id, label: chain.label, symbol: chain.symbol, amount: price.amount });
         }
         continue;
       }

@@ -31,6 +31,7 @@ type WalletState = {
   clearHoldings: () => void;
   credit: (item: Holding) => void;
   holds: (query: ChainQuery) => boolean;
+  debit: (item: Holding) => void;
   connectBrowser: () => Promise<string | null>;
   addAsset: (asset: UserAsset) => void;
   removeAsset: (id: string) => void;
@@ -148,6 +149,18 @@ export const useWallet = create<WalletState>((set, get) => ({
     if (!found) return false;
     const need = query.amount > 0 ? query.amount : 1;
     return found.amount >= need;
+  },
+
+  debit: (item) => {
+    const key = holdingKey(item);
+    const need = item.amount > 0 ? item.amount : 1;
+    const holdings = get().holdings.flatMap((holding) => {
+      if (holdingKey(holding) !== key) return [holding];
+      const left = holding.amount - need;
+      return left > 0 ? [{ ...holding, amount: left }] : [];
+    });
+    set({ holdings, note: `Spent ${need} ${item.symbol}.` });
+    persist(get());
   },
 
   connectBrowser: async () => {

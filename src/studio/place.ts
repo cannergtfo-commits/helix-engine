@@ -104,6 +104,13 @@ export function chainProp(item: CatalogItem, x: number, z: number): EntityData {
       ],
     });
   }
+  if (item.role === "vendor") {
+    return makeEntity(item.label, {
+      position: vec(x, 0.45, z),
+      scale: vec(1.2, 0.9, 0.7),
+      components: [mesh("box", "#3a3632", { metalness: 0.2, roughness: 0.7 }), colliderFor("box", true), binding],
+    });
+  }
   if (item.role === "currency") {
     return makeEntity(item.label, {
       position: vec(x, 0.7, z),

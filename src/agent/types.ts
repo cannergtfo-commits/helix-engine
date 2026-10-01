@@ -15,7 +15,23 @@ export type AgentCommand =
   | { op: "spawn"; id?: string; kit?: "warden" | "relay"; x?: number; z?: number; yaw?: number; player?: boolean }
   | { op: "move"; id: string; x?: number; y?: number; z?: number; yaw?: number }
   | { op: "remove"; id: string }
-  | { op: "select"; id: string | null };
+  | { op: "select"; id: string | null }
+  | {
+      op: "rule";
+      id?: string;
+      role?: string;
+      token?: string;
+      chain?: string;
+      standard?: string;
+      contract?: string;
+      tokenId?: string;
+      symbol?: string;
+      amount?: number;
+      x?: number;
+      z?: number;
+      target?: string;
+    }
+  | { op: "grant"; token: string };
 
 export type AgentError = { index: number; error: string };
 
@@ -29,6 +45,7 @@ export type SceneEntityView = {
   locked: boolean;
   assetId: string | null;
   kit: string | null;
+  rule: { role: string; symbol: string; chain: string; amount: number; label: string } | null;
 };
 
 export type SceneView = {
@@ -38,6 +55,7 @@ export type SceneView = {
   background: string;
   concept: { logline: string; tone: string; pillars: string[] };
   story: { id: string; title: string; kind: string; speaker: string }[];
+  wallet: { symbol: string; amount: number; chain: string }[];
   entities: SceneEntityView[];
 };
 

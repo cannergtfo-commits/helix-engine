@@ -20,7 +20,7 @@ export type ChainId = "ethereum" | "polygon";
 
 export type TokenStandard = "erc20" | "erc721" | "erc1155";
 
-export type ChainRole = "collectible" | "gate" | "currency" | "skin";
+export type ChainRole = "collectible" | "gate" | "currency" | "skin" | "vendor";
 
 export type MeshComponent = {
   type: "mesh";
@@ -173,7 +173,8 @@ export type ChainEvent =
       amount: number;
     }
   | { type: "unlock"; id: string; label: string }
-  | { type: "locked"; id: string; label: string; symbol: string };
+  | { type: "spent"; id: string; label: string; symbol: string; chain: ChainId; standard: TokenStandard; contract: string; tokenId: string; amount: number }
+  | { type: "locked"; id: string; label: string; symbol: string; amount: number };
 
 export const SCENE_STORAGE_KEY = "helix.scene.v3";
 

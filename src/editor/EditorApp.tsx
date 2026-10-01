@@ -241,7 +241,7 @@ function Toolbar({ onImport, onPlay }: { onImport: () => void; onPlay: () => voi
         <span className="grid h-7 w-7 place-items-center rounded-md bg-accent text-xs font-semibold text-accent-ink">H</span>
         <div className="leading-tight">
           <div className="text-sm font-semibold tracking-wide">Helix</div>
-          <div className="text-xs whitespace-nowrap text-muted">AI studio</div>
+          <div className="text-xs whitespace-nowrap text-muted">On-chain</div>
         </div>
       </div>
       <input
@@ -717,12 +717,12 @@ function Console() {
 function Guide() {
   return (
     <div className="space-y-3 px-3 py-3 text-sm text-muted">
-      <p className="text-fg">Helix is directed. Describe a scene and Grok builds it from the catalog, then you play it.</p>
+      <p className="text-fg">Helix builds chain games. A rule checks the wallet. Nothing in play sends a transaction.</p>
       <ol className="list-decimal space-y-1 pl-4">
-        <li>In Library, write a sentence or pick a starter, then press Direct this scene.</li>
-        <li>The hall props are replaced. The warden, ground, and lights stay.</li>
-        <li>Open Story and Concept to read the beats and the pitch the director wrote.</li>
-        <li>Press Play. W drives, A turns left, D turns right.</li>
+        <li>Stamp a gate, loot, purse, vendor, or skin in the library.</li>
+        <li>Grant the token, or claim it on Chain. That only fills the studio wallet.</li>
+        <li>Press Play. W drives, A turns left, D turns right. Walk into the rule.</li>
+        <li>Bots use the same rules: helix.run with op rule and op grant.</li>
       </ol>
       <p>Studio version {HELIX_VERSION}. Samples never leave this browser and never send a transaction.</p>
       <pre className="overflow-auto rounded-md bg-bg p-2 font-mono text-xs text-fg">{`api.rotate(0, 40 * api.dt, 0);

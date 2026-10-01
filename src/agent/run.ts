@@ -1,6 +1,8 @@
 import { characterEntity } from "@/engine/document";
 import type { EntityData, SceneDocument, StoryKind } from "@/engine/types";
 import { modelEntity } from "@/studio/place";
+import { grantToken, stampRule } from "@/studio/rules";
+import { useWallet } from "@/studio/wallet";
 import type { AgentAsset, AgentCommand, AgentError, AgentResult, SceneView } from "./types";
 
 const KINDS = new Set<StoryKind>(["setup", "dialogue", "objective", "payoff"]);
@@ -33,6 +35,7 @@ export function sceneView(doc: SceneDocument, mode: "edit" | "play"): SceneView 
     background: doc.background,
     concept: doc.concept,
     story: doc.story.map((beat) => ({ id: beat.id, title: beat.title, kind: beat.kind, speaker: beat.speaker })),
+    wallet: useWallet.getState().holdings.map((holding) => ({ symbol: holding.symbol, amount: holding.amount, chain: holding.chain })),
     entities: doc.entities.map((entity) => ({
       id: entity.id,
       name: entity.name,
@@ -43,6 +46,7 @@ export function sceneView(doc: SceneDocument, mode: "edit" | "play"): SceneView 
       locked: locked(entity),
       assetId: assetIdOf(entity),
       kit: kitOf(entity),
+      rule: ruleOf(entity),
     })),
   };
 }
@@ -134,6 +138,13 @@ function applyOne(doc: SceneDocument, catalog: AgentAsset[], command: AgentComma
       select(command.id);
       return null;
     }
+    case "rule": {
+      const error = stampRule(doc, command);
+      if (!error) select(command.role === "skin" ? command.target || "warden" : safeId(command.id) ?? command.role ?? null);
+      return error;
+    }
+    case "grant":
+      return grantToken(command.token ?? "");
     default:
       return "Unknown op.";
   }
@@ -177,6 +188,12 @@ function assetIdOf(entity: EntityData) {
 function kitOf(entity: EntityData) {
   const character = entity.components.find((component) => component.type === "character");
   return character && character.type === "character" ? character.kit : null;
+}
+
+function ruleOf(entity: EntityData) {
+  const chain = entity.components.find((component) => component.type === "chain");
+  if (!chain || chain.type !== "chain") return null;
+  return { role: chain.role, symbol: chain.symbol, chain: chain.chain, amount: chain.amount, label: chain.label };
 }
 
 function safeId(value: unknown) {

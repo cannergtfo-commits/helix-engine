@@ -17,6 +17,7 @@ import {
 import { applyClip, bindChainToSelection, chainProp, entityFromDrag, placeInScene } from "./place";
 import { ModelShelf } from "./ModelShelf";
 import { Director } from "./Director";
+import { Rules } from "./Rules";
 import { AgentCard } from "@/agent/AgentCard";
 import { shortAddress, useWallet } from "./wallet";
 
@@ -73,6 +74,7 @@ export function Library({ onPlaced }: { onPlaced?: () => void }) {
   const assets = useWallet((state) => state.assets);
   return (
     <div className="min-h-0 flex-1 space-y-4 overflow-auto px-2 py-3">
+      <Rules />
       <Director />
       <AgentCard />
       <ModelShelf onPlaced={onPlaced} />
@@ -378,7 +380,7 @@ export function ChainDesk({ onPlaced }: { onPlaced?: () => void }) {
       <div>
         <h2 className="text-lg font-semibold text-fg">Chain</h2>
         <p className="mt-1 max-w-2xl text-sm text-muted">
-          Drop Ethereum or Polygon tokens into the game as pickups, doors, currencies, or skins. The studio wallet is local — claiming a sample never sends a transaction.
+          The wallet is the player’s inventory. Sample tokens stay in this browser. A contract you link is only read as a rule, and play never sends a transaction.
         </p>
       </div>
       <section className="rounded-md border border-line bg-surface p-3">
@@ -544,9 +546,10 @@ function LinkForm() {
         <option value="erc1155">ERC-1155</option>
       </select>
       <select className={field} aria-label="Role in game" value={role} onChange={(event) => setRole(event.target.value as CatalogItem["role"])}>
-        <option value="collectible">Collectible</option>
-        <option value="gate">Door</option>
+        <option value="collectible">Loot</option>
+        <option value="gate">Gate</option>
         <option value="currency">Currency</option>
+        <option value="vendor">Vendor</option>
         <option value="skin">Skin</option>
       </select>
       <input className={field} aria-label="Contract address" placeholder="Contract, optional" value={contract} onChange={(event) => setContract(event.target.value)} />
@@ -605,7 +608,9 @@ export function ExtraFields({
         </p>
         <p className="font-mono break-all">{component.contract}</p>
         {component.tokenId ? <p>Token {component.tokenId}</p> : null}
-        <p>{component.role === "gate" ? `Needs ${component.amount}` : `Grants ${component.amount}`}</p>
+        <p>
+          {component.role === "gate" ? `Needs ${component.amount}` : component.role === "vendor" ? `Spends ${component.amount}` : component.role === "skin" ? "Worn while held" : `Grants ${component.amount}`}
+        </p>
       </div>
     );
   }
