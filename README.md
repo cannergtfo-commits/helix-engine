@@ -2,7 +2,7 @@
 
 Helix is a browser game engine: a scene editor, a WebGL renderer, a component model, and a playable runtime. Scenes are JSON. The same document you edit is the document you simulate.
 
-[Watch the 10-second demo](demo/helix-demo.mp4) — the moon court in the rain, cut from the live scene.
+[Download the 10-second demo (MP4, 1280×720)](https://github.com/cannergtfo-commits/helix-engine/raw/main/demo/helix-demo.mp4) — the moon court in the rain. The file plays in a browser and downloads directly.
 
 One hundred and thirty-five texture packets ship with the studio, including a dark-fantasy elven set: moonstone, nightwood, dusk velvet, silverleaf, and violet glass. `helix.textures()` lists them. The Moon court places five elves — Vaelith, Seryne, Ilyra, Nimrael, and Orinel — in front of a moonstone hall. Rain, from the toolbar or `helix.weather("rain")`, puts a storm on the open scene: streaks, a wet lot, fog, and lightning.
 
