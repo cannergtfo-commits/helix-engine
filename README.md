@@ -38,6 +38,8 @@ engine.start();
 
 A scene is version `1` JSON: gravity, fog, and entities with transform plus components (`mesh`, `light`, `camera`, `collider`, `rigidbody`, `script`).
 
+The viewport keeps the dark brass stage and draws it with an Unreal-style bloom pass, a dusk image-based light, soft shadows, and tiled finishes for brick, wood, stone, glass, and the lot. Materials stay on the document; the renderer only samples them.
+
 Helix keeps the world in a document the renderer only draws. Agents build houses with `helix.build([...])` — rooms, walls, doors, windows, roofs, and furniture — without clicking. A batch commits once, or rolls back on collision. `helix.world()` is the room tree, `helix.validate()` lists overlaps and missing doors, and `helix.benchmark()` constructs a cottage headlessly and checks that the same plan hashes the same twice.
 
 Helix is a studio for chain games. Stamp a gate, loot drop, currency purse, vendor, or skin. Play checks the studio wallet and never sends a transaction. Bots do the same with `helix.run([{ op: "rule", role: "gate", token: "KEY", x: 0, z: -3 }, { op: "grant", token: "KEY" }])`. `helix.scene()` returns each entity's rule and the wallet. A real contract can be passed as `contract`, `standard`, and `chain` instead of a sample symbol.

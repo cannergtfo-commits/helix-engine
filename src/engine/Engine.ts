@@ -3,7 +3,12 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { TransformControls } from "three/addons/controls/TransformControls.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { clone as cloneSkinned } from "three/addons/utils/SkeletonUtils.js";
+import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { buildCharacter, poseCharacter, type CharacterRig } from "./characters";
+import { duskEnvironment, finishMaterial, tuneRepeat, type FinishName } from "./finish";
 import { integrate, type SimBody } from "./physics";
 import type {
   ChainEvent,
@@ -97,6 +102,17 @@ function findComponent<T extends Component["type"]>(
   return entity.components.find((component) => component.type === type) as
     | Extract<Component, { type: T }>
     | undefined;
+}
+
+function finishOf(entity: EntityData): { name: FinishName; repeat: "wall" | "flat" } | null {
+  if (entity.id === "ground") return { name: "lot", repeat: "flat" };
+  const build = findComponent(entity, "build");
+  if (!build) return null;
+  const known: FinishName[] = ["brick", "wood", "drywall", "concrete", "roofing", "glass"];
+  const name = known.find((item) => item === build.material);
+  if (!name) return null;
+  const flat = build.kind === "floor" || build.kind === "roof";
+  return { name, repeat: flat ? "flat" : "wall" };
 }
 
 function createGeometry(primitive: Primitive): THREE.BufferGeometry {
@@ -224,6 +240,8 @@ export class HelixEngine {
   private steerOverride: number | null = null;
   private stickThrottle = 0;
   private stickSteer = 0;
+  private readonly renderPass: RenderPass;
+  private readonly composer: EffectComposer;
   private fps = 60;
   private statsClock = 0;
   private running = false;
@@ -242,10 +260,12 @@ export class HelixEngine {
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.08;
+    this.renderer.toneMappingExposure = 1.02;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
-
+    this.renderer.info.autoReset = false;
+    const environment = duskEnvironment(this.renderer);
     this.scene = new THREE.Scene();
+    this.scene.environment = environment;
     this.scene.background = new THREE.Color("#12141a");
     this.editorCamera = new THREE.PerspectiveCamera(50, 1, 0.08, 250);
     this.editorCamera.position.set(5.6, 3.5, 8.4);
@@ -267,6 +287,12 @@ export class HelixEngine {
     this.orbit.target.set(0, 0.7, 0);
     this.orbit.enableDamping = true;
     this.orbit.dampingFactor = 0.09;
+    this.renderPass = new RenderPass(this.scene, this.editorCamera);
+    this.composer = new EffectComposer(this.renderer);
+    this.composer.addPass(this.renderPass);
+    const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.16, 0.42, 0.92);
+    this.composer.addPass(bloom);
+    this.composer.addPass(new OutputPass());
     this.orbit.maxPolarAngle = Math.PI / 2 - 0.04;
     this.orbit.minDistance = 1.4;
     this.orbit.maxDistance = 80;
@@ -337,6 +363,8 @@ export class HelixEngine {
     this.height = Math.max(1, height);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
     this.renderer.setSize(this.width, this.height, false);
+    this.composer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+    this.composer.setSize(this.width, this.height);
     const aspect = this.width / this.height;
     this.editorCamera.aspect = aspect;
     this.editorCamera.updateProjectionMatrix();
@@ -582,6 +610,7 @@ export class HelixEngine {
     this.renderer.domElement.removeEventListener("pointerup", this.onPointerUp);
     this.orbit.dispose();
     this.transform.dispose();
+    this.composer.dispose();
     for (const id of [...this.runtimes.keys()]) this.destroyRuntime(id);
     for (const geo of this.geos.values()) geo.dispose();
     this.renderer.dispose();
@@ -617,7 +646,9 @@ export class HelixEngine {
     this.poseCharacters();
     this.syncHelpers();
     const camera = this.activeCamera();
-    this.renderer.render(this.scene, camera);
+    this.renderPass.camera = camera;
+    this.renderer.info.reset();
+    this.composer.render();
 
     if (dt > 0) this.fps = this.fps * 0.9 + (1 / dt) * 0.1;
     this.statsClock += dt;
@@ -925,6 +956,7 @@ export class HelixEngine {
       runtime.root.scale.set(entity.scale.x, entity.scale.y, entity.scale.z);
     }
     runtime.root.visible = entity.visible;
+    tuneRepeat(runtime.root);
     this.syncMaterials(runtime, entity);
   }
 
@@ -949,7 +981,8 @@ export class HelixEngine {
       runtime.disposables.push(...built.disposables);
     } else if (meshComponent) {
       const geo = this.geometry(meshComponent.primitive);
-      const material = new THREE.MeshStandardMaterial({
+      const finish = finishOf(entity);
+      const material = finish ? finishMaterial(finish.name, finish.repeat) : new THREE.MeshStandardMaterial({
         color: meshComponent.color,
         metalness: meshComponent.metalness,
         roughness: meshComponent.roughness,
@@ -1011,14 +1044,15 @@ export class HelixEngine {
     } else {
       const sun = new THREE.DirectionalLight(component.color, component.intensity);
       sun.castShadow = component.castShadow;
-      sun.shadow.mapSize.set(1024, 1024);
-      sun.shadow.camera.near = 1;
-      sun.shadow.camera.far = 48;
-      sun.shadow.camera.left = -16;
-      sun.shadow.camera.right = 16;
-      sun.shadow.camera.top = 16;
-      sun.shadow.camera.bottom = -16;
-      sun.shadow.bias = -0.0004;
+      sun.shadow.mapSize.set(2048, 2048);
+      sun.shadow.camera.near = 0.5;
+      sun.shadow.camera.far = 60;
+      sun.shadow.camera.left = -18;
+      sun.shadow.camera.right = 18;
+      sun.shadow.camera.top = 18;
+      sun.shadow.camera.bottom = -18;
+      sun.shadow.bias = -0.0002;
+      sun.shadow.normalBias = 0.03;
       sun.target.position.set(0, 0, 0);
       this.scene.add(sun.target);
       runtime.disposables.push({
@@ -1036,7 +1070,7 @@ export class HelixEngine {
     const meshComponent = findComponent(entity, "mesh");
     if (meshComponent && meshComponent.primitive !== "rover" && !meshComponent.src) {
       runtime.root.traverse((obj) => {
-        if (obj instanceof THREE.Mesh && obj.material instanceof THREE.MeshStandardMaterial && !obj.userData.proxy) {
+        if (obj instanceof THREE.Mesh && obj.material instanceof THREE.MeshStandardMaterial && !obj.userData.proxy && obj.material.userData.finish !== true) {
           obj.material.color.set(meshComponent.color);
           obj.material.metalness = meshComponent.metalness;
           obj.material.roughness = meshComponent.roughness;
