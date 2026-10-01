@@ -1,5 +1,6 @@
 import { useEditor } from "@/editor/store";
 import { applyAll, canReach, cottagePlan, findPath, queryNear, validate, worldHash, worldView, type BuildOp } from "@/build/ops";
+import { PACKETS } from "@/engine/packets";
 import type { AgentAsset, AgentCommand, AgentResult } from "./types";
 import { findAssets, resultOf, runCommands, sceneView } from "./run";
 
@@ -10,6 +11,7 @@ export type HelixAgent = {
   find: (query: string) => Promise<AgentAsset[]>;
   scene: () => ReturnType<typeof sceneView>;
   world: () => ReturnType<typeof worldView>;
+  textures: () => Array<{ id: string; label: string; family: string; rate: number }>;
   validate: () => ReturnType<typeof validate>;
   query: (args: { x: number; z: number; radius: number; kind?: string }) => ReturnType<typeof queryNear>;
   reach: (from: string, to: string) => ReturnType<typeof canReach>;
@@ -46,6 +48,7 @@ export function installHelix() {
       return sceneView(state.doc, state.mode);
     },
     world: () => worldView(useEditor.getState().doc),
+    textures: () => PACKETS.map((packet) => ({ id: packet.id, label: packet.label, family: packet.family, rate: packet.rate })),
     validate: () => validate(useEditor.getState().doc),
     query: ({ x, z, radius, kind }) => queryNear(useEditor.getState().doc, x, z, radius, kind),
     reach: (from, to) => canReach(useEditor.getState().doc, from, to),

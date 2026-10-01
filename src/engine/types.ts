@@ -59,6 +59,8 @@ export type MeshComponent = {
   src?: string;
   /** Target size of the longest side, in metres. */
   fit?: number;
+  /** Texture packet id, such as brick, ashlar, or oak. */
+  finish?: string;
 };
 
 export type LightKind = "ambient" | "directional" | "point" | "spot";

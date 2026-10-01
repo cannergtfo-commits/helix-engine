@@ -1,24 +1,16 @@
 import * as THREE from "three";
+import { PACKETS, packetById, paintPacket, type Packet } from "./packets";
 
-export type FinishName = "brick" | "wood" | "drywall" | "concrete" | "roofing" | "glass" | "lot";
+export type FinishName = Packet["id"];
 
 type Maps = { color: THREE.CanvasTexture; normal: THREE.CanvasTexture; rough: THREE.CanvasTexture };
 
-const cache = new Map<FinishName, Maps>();
+const cache = new Map<string, Maps>();
 
-const LOOK: Record<FinishName, { metal: number; rough: number; normal: number; env: number; glass?: boolean }> = {
-  brick: { metal: 0.02, rough: 0.82, normal: 0.7, env: 0.35 },
-  wood: { metal: 0.04, rough: 0.68, normal: 0.45, env: 0.25 },
-  drywall: { metal: 0.01, rough: 0.92, normal: 0.15, env: 0.12 },
-  concrete: { metal: 0.03, rough: 0.9, normal: 0.35, env: 0.18 },
-  roofing: { metal: 0.12, rough: 0.62, normal: 0.55, env: 0.4 },
-  glass: { metal: 0.04, rough: 0.08, normal: 0.05, env: 1.15, glass: true },
-  lot: { metal: 0.04, rough: 0.94, normal: 0.4, env: 0.2 },
-};
-
-export function finishMaterial(name: FinishName, repeat: "wall" | "flat"): THREE.MeshStandardMaterial {
-  const maps = library(name);
-  const look = LOOK[name];
+export function finishMaterial(name: string, repeat: "wall" | "flat"): THREE.MeshStandardMaterial {
+  const packet = packetById(name) ?? PACKETS[0];
+  if (!packet) throw new Error("packet");
+  const maps = library(packet);
   const color = maps.color.clone();
   const normal = maps.normal.clone();
   const rough = maps.rough.clone();
@@ -28,29 +20,29 @@ export function finishMaterial(name: FinishName, repeat: "wall" | "flat"): THREE
     map.repeat.set(1, 1);
   }
   color.colorSpace = THREE.SRGBColorSpace;
-  const material = look.glass
+  const material = packet.glass
     ? new THREE.MeshPhysicalMaterial({
         map: color,
         normalMap: normal,
         roughnessMap: rough,
-        color: "#d5dee6",
-        metalness: look.metal,
-        roughness: look.rough,
+        color: packet.color,
+        metalness: packet.metal,
+        roughness: packet.rough,
         transmission: 0.72,
         thickness: 0.08,
         ior: 1.5,
         transparent: true,
-        envMapIntensity: look.env,
+        envMapIntensity: packet.env,
       })
     : new THREE.MeshStandardMaterial({
         map: color,
         normalMap: normal,
         roughnessMap: rough,
-        metalness: look.metal,
-        roughness: look.rough,
-        envMapIntensity: look.env,
+        metalness: packet.metal,
+        roughness: packet.rough,
+        envMapIntensity: packet.env,
       });
-  material.normalScale.set(look.normal, look.normal);
+  material.normalScale.set(packet.normal, packet.normal);
   material.userData.finish = true;
   material.userData.repeat = repeat;
   return material;
@@ -100,8 +92,8 @@ export function duskEnvironment(renderer: THREE.WebGLRenderer) {
   return target.texture;
 }
 
-function library(name: FinishName) {
-  const cached = cache.get(name);
+function library(packet: Packet) {
+  const cached = cache.get(packet.id);
   if (cached) return cached;
   const size = 256;
   const color = document.createElement("canvas");
@@ -113,115 +105,15 @@ function library(name: FinishName) {
   const c = color.getContext("2d");
   const r = rough.getContext("2d");
   if (!c || !r) throw new Error("canvas");
-  draw(name, c, r, size);
-  const height = luminance(c, size, name === "brick" || name === "roofing");
+  paintPacket(packet, c, r, size);
+  const height = luminance(c, size, Boolean(packet.invert));
   const maps = {
     color: new THREE.CanvasTexture(color),
-    normal: new THREE.CanvasTexture(normalFrom(height, size, name === "drywall" ? 0.6 : 1.6)),
+    normal: new THREE.CanvasTexture(normalFrom(height, size, packet.normal < 0.25 ? 0.6 : 1.6)),
     rough: new THREE.CanvasTexture(rough),
   };
-  cache.set(name, maps);
+  cache.set(packet.id, maps);
   return maps;
-}
-
-function draw(name: FinishName, c: CanvasRenderingContext2D, r: CanvasRenderingContext2D, size: number) {
-  if (name === "brick") return bricks(c, r, size);
-  if (name === "wood") return planks(c, r, size, "#8a6244", "#5c3e2a");
-  if (name === "roofing") return shingles(c, r, size);
-  if (name === "drywall") return plaster(c, r, size, "#d7d1c6", 18);
-  if (name === "glass") return plaster(c, r, size, "#d5dee6", 8);
-  if (name === "lot") return grit(c, r, size, "#2a2d33", "#1a1c20");
-  return grit(c, r, size, "#8d8a84", "#6e6b66");
-}
-
-function bricks(c: CanvasRenderingContext2D, r: CanvasRenderingContext2D, size: number) {
-  c.fillStyle = "#c8b7a4";
-  r.fillStyle = "#d0d0d0";
-  c.fillRect(0, 0, size, size);
-  r.fillRect(0, 0, size, size);
-  const rows = 8;
-  const bh = size / rows;
-  const bw = size / 4;
-  for (let row = 0; row < rows; row++) {
-    const offset = row % 2 ? bw / 2 : 0;
-    for (let col = -1; col < 6; col++) {
-      const shade = 90 + ((row * 5 + col * 3) % 5) * 8;
-      c.fillStyle = `rgb(${shade + 40}, ${shade * 0.42}, ${shade * 0.32})`;
-      r.fillStyle = "#8a8a8a";
-      const x = col * bw + offset + 1;
-      const y = row * bh + 1;
-      c.fillRect(x, y, bw - 2, bh - 2);
-      r.fillRect(x, y, bw - 2, bh - 2);
-    }
-  }
-}
-
-function planks(c: CanvasRenderingContext2D, r: CanvasRenderingContext2D, size: number, face: string, seam: string) {
-  c.fillStyle = face;
-  r.fillStyle = "#9a9a9a";
-  c.fillRect(0, 0, size, size);
-  r.fillRect(0, 0, size, size);
-  const boards = 6;
-  for (let i = 0; i < boards; i++) {
-    const y = (i * size) / boards;
-    c.fillStyle = seam;
-    r.fillStyle = "#e4e4e4";
-    c.fillRect(0, y, size, 2);
-    r.fillRect(0, y, size, 2);
-    c.strokeStyle = "rgba(40,22,12,0.25)";
-    for (let g = 0; g < 4; g++) {
-      c.beginPath();
-      c.moveTo(0, y + 6 + g * 8);
-      c.lineTo(size, y + 8 + g * 8);
-      c.stroke();
-    }
-  }
-}
-
-function shingles(c: CanvasRenderingContext2D, r: CanvasRenderingContext2D, size: number) {
-  c.fillStyle = "#2e3238";
-  r.fillStyle = "#7a7a7a";
-  c.fillRect(0, 0, size, size);
-  r.fillRect(0, 0, size, size);
-  const rows = 8;
-  const rh = size / rows;
-  for (let row = 0; row < rows; row++) {
-    const offset = row % 2 ? size / 8 : 0;
-    for (let col = -1; col < 5; col++) {
-      c.fillStyle = row % 2 ? "#3a3e46" : "#32363c";
-      c.fillRect(col * (size / 4) + offset, row * rh, size / 4 - 2, rh - 2);
-      c.strokeStyle = "#1c1e22";
-      c.strokeRect(col * (size / 4) + offset, row * rh, size / 4 - 2, rh - 2);
-    }
-  }
-}
-
-function plaster(c: CanvasRenderingContext2D, r: CanvasRenderingContext2D, size: number, color: string, grain: number) {
-  c.fillStyle = color;
-  r.fillStyle = "#bdbdbd";
-  c.fillRect(0, 0, size, size);
-  r.fillRect(0, 0, size, size);
-  for (let i = 0; i < grain * 40; i++) {
-    const x = (i * 47) % size;
-    const y = (i * 91) % size;
-    c.fillStyle = `rgba(80,70,60,${0.04 + (i % 5) * 0.02})`;
-    c.fillRect(x, y, 2, 2);
-  }
-}
-
-function grit(c: CanvasRenderingContext2D, r: CanvasRenderingContext2D, size: number, face: string, pit: string) {
-  c.fillStyle = face;
-  r.fillStyle = "#a3a3a3";
-  c.fillRect(0, 0, size, size);
-  r.fillRect(0, 0, size, size);
-  for (let i = 0; i < 700; i++) {
-    const x = (i * 53) % size;
-    const y = (i * 97) % size;
-    c.fillStyle = i % 3 ? pit : "rgba(232,165,75,0.08)";
-    r.fillStyle = i % 4 ? "#cfcfcf" : "#8d8d8d";
-    c.fillRect(x, y, 2, 2);
-    r.fillRect(x, y, 2, 2);
-  }
 }
 
 function luminance(ctx: CanvasRenderingContext2D, size: number, invert: boolean) {

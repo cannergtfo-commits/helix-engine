@@ -1,4 +1,5 @@
 import { colliderFor, makeEntity, mesh, vec } from "@/engine/document";
+import { packetById } from "@/engine/packets";
 import type { BuildKind, EntityData, SceneDocument } from "@/engine/types";
 
 export type BuildOp =
@@ -23,14 +24,11 @@ export type BuildResult = BuildSuccess | BuildFailure;
 
 export type BuildIssue = { level: "error" | "warn"; code: string; message: string; ids: string[] };
 
-const RATES: Record<string, { color: string; metal: number; rough: number; rate: number }> = {
-  brick: { color: "#8d4a3a", metal: 0.04, rough: 0.86, rate: 42 },
-  wood: { color: "#8a6244", metal: 0.08, rough: 0.72, rate: 28 },
-  drywall: { color: "#d9d3c7", metal: 0.02, rough: 0.9, rate: 18 },
-  concrete: { color: "#8d8a84", metal: 0.05, rough: 0.88, rate: 22 },
-  glass: { color: "#b7c4ce", metal: 0.1, rough: 0.12, rate: 55 },
-  roofing: { color: "#3e4248", metal: 0.2, rough: 0.7, rate: 36 },
-};
+function finishSpec(name: string) {
+  const packet = packetById(name);
+  if (packet) return { color: packet.color, metal: packet.metal, rough: packet.rough, rate: packet.rate };
+  return { color: "#d9d3c7", metal: 0.02, rough: 0.9, rate: 18 };
+}
 
 const HEIGHT = 2.6;
 const THICK = 0.16;
@@ -221,7 +219,7 @@ function placeWindow(doc: SceneDocument, op: Extract<BuildOp, { op: "window" }>)
   entity.position = vec(along.x, 1.5, along.z);
   entity.rotation = { ...wall.rotation };
   entity.scale = vec(1.1, 1, 0.06);
-  entity.components.unshift(mesh("box", RATES.glass.color, { metalness: RATES.glass.metal, roughness: RATES.glass.rough }));
+  entity.components.unshift(mesh("box", finishSpec("glass").color, { metalness: finishSpec("glass").metal, roughness: finishSpec("glass").rough }));
   doc.entities.push(entity);
   return { ok: true, id, cost: costOf(entity), warnings: [] };
 }
@@ -246,7 +244,7 @@ function furnish(doc: SceneDocument, op: Extract<BuildOp, { op: "furnish" }>): B
   const entity = marker(id, op.name ?? tag, "furniture", [tag], room.id, "wood", footprint, rate("wood") * footprint.x * footprint.z);
   entity.position = vec(room.position.x, footprint.y / 2, room.position.z + size.z * 0.25);
   entity.scale = vec(footprint.x, footprint.y, footprint.z);
-  entity.components.unshift(mesh("box", RATES.wood.color, { metalness: 0.08, roughness: 0.72 }));
+  entity.components.unshift(mesh("box", finishSpec("wood").color, { metalness: 0.08, roughness: 0.72 }));
   entity.components.push(colliderFor("box", true));
   const blocking = doc.entities.find((other) => isBuild(other) && solid(other) && overlap(inset(aabb(other), 0.05), inset(aabb(entity), 0.05)));
   if (blocking) return { ok: false, reason: "COLLISION", blocking: blocking.id, suggestion: { x: round(room.position.x), z: round(room.position.z - size.z * 0.25) } };
@@ -283,7 +281,7 @@ function wallEntity(id: string, x1: number, z1: number, x2: number, z2: number, 
   const length = Math.hypot(dx, dz);
   if (length < 0.2) return null;
   const yaw = (Math.atan2(-dz, dx) * 180) / Math.PI;
-  const finish = RATES[material] ?? RATES.drywall;
+  const finish = finishSpec(material);
   const cost = finish.rate * length * height;
   const entity = marker(id, kind === "interior-wall" ? "Interior wall" : "Wall", kind, [kind], parent, material, { x: length, y: height, z: THICK }, cost);
   entity.position = vec((x1 + x2) / 2, height / 2, (z1 + z2) / 2);
@@ -295,7 +293,7 @@ function wallEntity(id: string, x1: number, z1: number, x2: number, z2: number, 
 }
 
 function slab(id: string, name: string, kind: BuildKind, parent: string, material: string, x: number, y: number, z: number, sx: number, sy: number, sz: number) {
-  const finish = RATES[material] ?? RATES.concrete;
+  const finish = finishSpec(material);
   const entity = marker(id, name, kind, [kind], parent, material, { x: sx, y: sy, z: sz }, finish.rate * sx * sz);
   entity.position = vec(x, y, z);
   entity.scale = vec(sx, sy, sz);
@@ -467,7 +465,7 @@ function tagsOf(entity: EntityData) {
 }
 
 function rate(material: string) {
-  return (RATES[material] ?? RATES.drywall).rate;
+  return finishSpec(material).rate;
 }
 
 function nextId(doc: SceneDocument, prefix: string) {

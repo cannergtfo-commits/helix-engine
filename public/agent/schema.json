@@ -8,7 +8,7 @@
     "find": "await helix.find('knight')",
     "scene": "helix.scene()"
   },
-  "build": "await helix.build([{ op: 'room', id: 'hall', x: -4, z: -3, width: 8, depth: 6, door: 'south' }]). Ops: site, room, wall, door, window, roof, furnish. A failed step rolls the batch back. helix.world(), helix.validate(), helix.query({ x, z, radius, kind }), helix.benchmark(). Construction does not render until the batch commits.",
+  "build": "await helix.build([{ op: 'room', id: 'hall', x: -4, z: -3, width: 8, depth: 6, door: 'south', material: 'stone' }]). material is a texture packet id from helix.textures(). Ops: site, room, wall, door, window, roof, furnish. A failed step rolls the batch back. helix.world(), helix.validate(), helix.query({ x, z, radius, kind }), helix.benchmark(). Construction does not render until the batch commits.",
   "result": { "ok": true, "applied": 1, "errors": [{ "index": 0, "error": "reason" }], "scene": {} },
   "commands": [
     { "op": "clear", "does": "Remove props. Keeps the stage and the warden." },

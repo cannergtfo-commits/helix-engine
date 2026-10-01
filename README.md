@@ -4,6 +4,8 @@ Helix is a browser game engine: a scene editor, a WebGL renderer, a component mo
 
 [Watch the 10-second demo](demo/helix-demo.mp4) — the brick cottage and the warden, from the live scene.
 
+One hundred and twenty-one texture packets ship with the studio: brick, stone, plaster, timber, tile, roofs, glass, metals, and ground. `helix.textures()` lists them. Pass an id as `material` on a room or wall, or click one in Textures.
+
 ## Editor
 
 Open the app and use the courtyard demo.

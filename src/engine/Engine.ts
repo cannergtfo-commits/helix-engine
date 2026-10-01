@@ -9,6 +9,7 @@ import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { buildCharacter, poseCharacter, type CharacterRig } from "./characters";
 import { duskEnvironment, finishMaterial, tuneRepeat, type FinishName } from "./finish";
+import { packetById } from "./packets";
 import { integrate, type SimBody } from "./physics";
 import type {
   ChainEvent,
@@ -85,11 +86,12 @@ type Runtime = {
 function signature(entity: EntityData): string {
   return entity.components
     .map((component) => {
-      if (component.type === "mesh") return `mesh:${component.src ?? component.primitive}`;
+      if (component.type === "mesh") return `mesh:${component.src ?? component.primitive}:${component.finish ?? ""}`;
       if (component.type === "light") return `light:${component.light}`;
       if (component.type === "camera") return "camera";
       if (component.type === "character") return `character:${component.kit}`;
       if (component.type === "chain") return `chain:${component.role}`;
+      if (component.type === "build") return `build:${component.material}`;
       return component.type;
     })
     .join("|");
@@ -105,14 +107,18 @@ function findComponent<T extends Component["type"]>(
 }
 
 function finishOf(entity: EntityData): { name: FinishName; repeat: "wall" | "flat" } | null {
-  if (entity.id === "ground") return { name: "lot", repeat: "flat" };
+  const mesh = findComponent(entity, "mesh");
   const build = findComponent(entity, "build");
-  if (!build) return null;
-  const known: FinishName[] = ["brick", "wood", "drywall", "concrete", "roofing", "glass"];
-  const name = known.find((item) => item === build.material);
-  if (!name) return null;
-  const flat = build.kind === "floor" || build.kind === "roof";
-  return { name, repeat: flat ? "flat" : "wall" };
+  const named = mesh?.finish || (entity.id === "ground" ? "lot" : "") || build?.material || "";
+  const packet = named ? packetById(named) : undefined;
+  if (!packet) return null;
+  const flat =
+    entity.id === "ground" ||
+    mesh?.primitive === "plane" ||
+    build?.kind === "floor" ||
+    build?.kind === "roof" ||
+    (!build && (packet.family === "floor" || packet.family === "ground" || packet.family === "roof"));
+  return { name: packet.id, repeat: flat ? "flat" : "wall" };
 }
 
 function createGeometry(primitive: Primitive): THREE.BufferGeometry {
