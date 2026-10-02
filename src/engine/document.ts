@@ -6,6 +6,7 @@ import {
   type CharacterKit,
   type Component,
   type Concept,
+  type EmitterKind,
   type EntityData,
   type Primitive,
   type SceneDocument,
@@ -109,6 +110,32 @@ export function lightEntity(kind: "directional" | "point" | "ambient" | "spot"):
         intensity: kind === "directional" ? 3.4 : kind === "point" ? 26 : kind === "spot" ? 18 : 0.55,
         castShadow: kind === "directional",
       },
+    ],
+  });
+}
+
+export function triggerEntity(): EntityData {
+  return makeEntity("Trigger", {
+    position: vec(0, 1, 0),
+    components: [
+      {
+        type: "trigger",
+        halfExtents: vec(1.2, 1.2, 1.2),
+        message: "You crossed the threshold.",
+        once: true,
+      },
+    ],
+  });
+}
+
+export function brazierEntity(kind: EmitterKind = "fire"): EntityData {
+  const color = kind === "magic" ? "#c4b5fd" : kind === "mist" ? "#d5e4f6" : "#ffb25a";
+  return makeEntity(kind === "fire" ? "Brazier" : "Emitter", {
+    position: vec(0, 0.2, 0),
+    scale: vec(0.5, 0.36, 0.5),
+    components: [
+      mesh("cylinder", "#3a322c", { metalness: 0.35, roughness: 0.62 }),
+      { type: "emitter", kind, color, rate: 90, size: kind === "sparks" ? 0.08 : 0.16, speed: 1.2 },
     ],
   });
 }
@@ -316,6 +343,27 @@ export function createStarterScene(): SceneDocument {
     }),
     relay,
     warden,
+    makeEntity("Brazier", {
+      id: "brazier",
+      position: vec(-2.35, 0.16, 1.55),
+      scale: vec(0.5, 0.32, 0.5),
+      components: [
+        mesh("cylinder", "#3a322c", { metalness: 0.35, roughness: 0.62 }),
+        { type: "emitter", kind: "fire", color: "#ffb25a", rate: 96, size: 0.18, speed: 1.2 },
+      ],
+    }),
+    makeEntity("Threshold", {
+      id: "threshold",
+      position: vec(0, 1.1, -2.15),
+      components: [
+        {
+          type: "trigger",
+          halfExtents: vec(1.5, 1.3, 0.7),
+          message: "The archive door is ahead.",
+          once: true,
+        },
+      ],
+    }),
   );
   return doc;
 }

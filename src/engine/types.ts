@@ -117,6 +117,26 @@ export type CharacterComponent = {
   accent: string;
 };
 
+export type EmitterKind = "fire" | "sparks" | "mist" | "magic";
+
+export type EmitterComponent = {
+  type: "emitter";
+  kind: EmitterKind;
+  color: string;
+  /** How many motes stay alive. Clamped in the renderer. */
+  rate: number;
+  size: number;
+  speed: number;
+};
+
+export type TriggerComponent = {
+  type: "trigger";
+  halfExtents: Vec3;
+  /** Shown when the player enters the volume. */
+  message: string;
+  once: boolean;
+};
+
 export type ChainComponent = {
   type: "chain";
   chain: ChainId;
@@ -141,7 +161,9 @@ export type Component =
   | ScriptComponent
   | CharacterComponent
   | ChainComponent
-  | BuildComponent;
+  | BuildComponent
+  | EmitterComponent
+  | TriggerComponent;
 
 export type EntityData = {
   id: string;

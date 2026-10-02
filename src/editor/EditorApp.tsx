@@ -30,6 +30,7 @@ import {
   CUSTOM_SCRIPT_TEMPLATE,
   HELIX_VERSION,
   SCENE_STORAGE_KEY,
+  brazierEntity,
   cameraEntity,
   characterEntity,
   colliderFor,
@@ -41,8 +42,10 @@ import {
   parseScene,
   primitiveEntity,
   script,
+  triggerEntity,
   type Behavior,
   type Component,
+  type EmitterKind,
   type EntityData,
   type Primitive,
 } from "@/engine";
@@ -341,6 +344,8 @@ function AddMenu() {
         <AddItem icon={<SunMedium className="size-4" />} label="Sun" onClick={() => add(lightEntity("directional"))} />
         <AddItem icon={<Lightbulb className="size-4" />} label="Point light" onClick={() => add(lightEntity("point"))} />
         <AddItem icon={<Camera className="size-4" />} label="Camera" onClick={() => add(cameraEntity())} />
+        <AddItem label="Brazier" onClick={() => add(brazierEntity("fire"))} />
+        <AddItem label="Trigger" onClick={() => add(triggerEntity())} />
         <AddItem label="Relic hall" onClick={() => useEditor.getState().loadDoc(createStarterScene())} />
         <AddItem label="Empty scene" onClick={() => useEditor.getState().loadDoc(emptyScene())} />
         <details className="mt-1 border-t border-line pt-1">
@@ -542,6 +547,41 @@ function ComponentCard({
           <Slider label="Friction" min={0} max={3} step={0.05} value={component.friction} disabled={!editing} onChange={(friction) => patch({ friction })} />
         </div>
       ) : null}
+      {component.type === "emitter" ? (
+        <div className="space-y-2">
+          <label className="block text-xs text-muted">
+            Kind
+            <select
+              className={`${fieldClass} mt-1 w-full`}
+              disabled={!editing}
+              value={component.kind}
+              onChange={(event) => patch({ kind: event.target.value as EmitterKind })}
+            >
+              {["fire", "sparks", "mist", "magic"].map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex items-center justify-between text-xs text-muted">
+            Color
+            <input type="color" disabled={!editing} value={toColor(component.color)} onChange={(event) => patch({ color: event.target.value })} />
+          </label>
+          <Slider label="Rate" min={24} max={160} step={1} value={component.rate} disabled={!editing} onChange={(rate) => patch({ rate })} />
+        </div>
+      ) : null}
+      {component.type === "trigger" ? (
+        <label className="block text-xs text-muted">
+          Message
+          <input
+            className={`${fieldClass} mt-1 w-full`}
+            disabled={!editing}
+            value={component.message}
+            onChange={(event) => patch({ message: event.target.value })}
+          />
+        </label>
+      ) : null}
       {component.type === "script" ? (
         <div className="space-y-2">
           <label className="block text-xs text-muted">
@@ -604,6 +644,12 @@ function AddComponent({ entity }: { entity: EntityData }) {
     },
     { label: "Collider", hide: has("collider"), component: colliderFor("box", false) },
     { label: "Script", hide: has("script"), component: script("spin") },
+    { label: "Brazier fire", hide: has("emitter"), component: { type: "emitter", kind: "fire", color: "#ffb25a", rate: 80, size: 0.16, speed: 1.2 } },
+    {
+      label: "Trigger",
+      hide: has("trigger"),
+      component: { type: "trigger", halfExtents: { x: 1.2, y: 1.2, z: 1.2 }, message: "You crossed the threshold.", once: true },
+    },
     {
       label: "Point light",
       hide: has("light"),
@@ -730,7 +776,7 @@ function Guide() {
       <ol className="list-decimal space-y-1 pl-4">
         <li>Stamp a gate, loot, purse, vendor, or skin in the library.</li>
         <li>Grant the token, or claim it on Chain. That only fills the studio wallet.</li>
-        <li>Press Play. W drives, A turns left, D turns right. Walk into the rule.</li>
+        <li>Press Play. W drives, A turns left, D turns right, Space jumps. Walk into a trigger or a chain rule.</li>
         <li>Or press Build the cottage. Agents use helix.build and helix.world for the same plan, without clicking.</li>
       </ol>
       <p>Studio version {HELIX_VERSION}. Samples never leave this browser and never send a transaction.</p>

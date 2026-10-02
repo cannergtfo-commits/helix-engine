@@ -8,6 +8,9 @@ import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { buildCharacter, poseCharacter, type CharacterRig } from "./characters";
+import { HelixAudio } from "./audio";
+import { mountEmitter, stepEmitter, type Spray } from "./particles";
+import { createSky } from "./sky";
 import { duskEnvironment, finishMaterial, tuneRepeat, type FinishName } from "./finish";
 import { packetById } from "./packets";
 import { integrate, type SimBody } from "./physics";
@@ -83,6 +86,7 @@ type Hooks = {
   onSelect: (id: string | null) => void;
   onStats: (stats: EngineStats) => void;
   onChain?: (event: ChainEvent) => void;
+  onCue?: (text: string) => void;
   holdsToken?: (query: ChainQuery) => boolean;
 };
 
@@ -103,9 +107,12 @@ type Runtime = {
   consumed: boolean;
   opened: boolean;
   chainNoted: boolean;
+  insideTrigger: boolean;
+  triggerSpent: boolean;
   baseY?: number;
   loadToken: number;
   mixer: THREE.AnimationMixer | null;
+  spray: Spray | null;
 };
 
 function signature(entity: EntityData): string {
@@ -117,6 +124,8 @@ function signature(entity: EntityData): string {
       if (component.type === "character") return `character:${component.kit}`;
       if (component.type === "chain") return `chain:${component.role}`;
       if (component.type === "build") return `build:${component.material}`;
+      if (component.type === "emitter") return `emitter:${component.kind}:${component.color}:${component.rate}:${component.size}`;
+      if (component.type === "trigger") return `trigger:${component.halfExtents.x}:${component.halfExtents.y}:${component.halfExtents.z}`;
       return component.type;
     })
     .join("|");
@@ -289,6 +298,9 @@ export class HelixEngine {
   private readonly rainRight = new THREE.Vector3();
   private readonly rainUp = new THREE.Vector3();
   private readonly rainSpot = new THREE.Vector3();
+  private readonly sky = createSky();
+  private readonly audio = new HelixAudio();
+  private jumpLatch = false;
 
   constructor(canvas: HTMLCanvasElement, hooks: Hooks) {
     this.hooks = hooks;
@@ -309,6 +321,7 @@ export class HelixEngine {
     this.scene = new THREE.Scene();
     this.scene.environment = environment;
     this.scene.background = new THREE.Color("#12141a");
+    this.scene.add(this.sky.mesh);
     this.editorCamera = new THREE.PerspectiveCamera(50, 1, 0.08, 250);
     this.editorCamera.position.set(5.6, 3.5, 8.4);
 
@@ -368,6 +381,7 @@ export class HelixEngine {
 
     this.onKeyDown = (event) => {
       if (isTyping(event.target)) return;
+      if (this.mode === "play" && (event.code === "Space" || event.code.startsWith("Arrow"))) event.preventDefault();
       this.keySet.add(event.code);
     };
     this.onKeyUp = (event) => {
@@ -457,6 +471,7 @@ export class HelixEngine {
     this.weather = mode;
     if (mode === "rain") this.ensureRain();
     if (this.rain) this.rain.visible = mode === "rain";
+    this.sky.setStorm(mode === "rain" ? 1 : 0);
     this.paintAtmosphere();
     this.glossGround(mode === "rain");
     if (mode === "clear") {
@@ -575,7 +590,9 @@ export class HelixEngine {
     attr.needsUpdate = true;
     this.flash = Math.max(0, this.flash - step);
     const cycle = this.animTime % 6.4;
-    if (cycle < 0.07 || (cycle > 0.16 && cycle < 0.22)) this.flash = 0.08;
+    const strike = cycle < 0.07 || (cycle > 0.16 && cycle < 0.22);
+    if (strike && this.flash <= 0) this.audio.thunder();
+    if (strike) this.flash = 0.08;
     this.renderer.toneMappingExposure = this.flash > 0 ? 1.92 : 0.9;
   }
 
@@ -612,7 +629,9 @@ export class HelixEngine {
       this.snapCam = true;
       this.accumulator = 0;
       this.paused = false;
-      this.hooks.onLog("info", "Play mode. W drives, A turns left, D turns right, S brakes.");
+      this.jumpLatch = false;
+      this.audio.unlock();
+      this.hooks.onLog("info", "Play mode. W drives, A turns left, D turns right, Space jumps.");
     } else {
       this.bodies = [];
       this.playerId = null;
@@ -809,6 +828,8 @@ export class HelixEngine {
     for (const id of [...this.runtimes.keys()]) this.destroyRuntime(id);
     for (const geo of this.geos.values()) geo.dispose();
     this.renderer.dispose();
+    this.sky.dispose();
+    this.audio.dispose();
     if (window.__controlsTest === this.probe) delete window.__controlsTest;
   }
 
@@ -841,8 +862,10 @@ export class HelixEngine {
     this.poseCharacters();
     this.facePortraits(this.activeCamera());
     this.updateRain(dt);
+    if (!(this.mode === "play" && this.paused)) this.stepEmitters(dt);
     this.syncHelpers();
     const camera = this.activeCamera();
+    this.sky.mesh.position.copy(camera.position);
     this.renderPass.camera = camera;
     this.renderer.info.reset();
     this.composer.render();
@@ -878,6 +901,7 @@ export class HelixEngine {
     this.simTime += dt;
     this.runScripts(dt);
     this.runPlayer(dt);
+    this.scanTriggers();
     if (this.bodies.length) {
       integrate(this.bodies, this.gravity, dt);
       this.writeBodies();
@@ -967,7 +991,49 @@ export class HelixEngine {
     const fz = -Math.cos(this.playerYaw);
     body.vel.x = fx * this.playerSpeed;
     body.vel.z = fz * this.playerSpeed;
+    const jump = this.held("Space");
+    if (jump && !this.jumpLatch && body.grounded) {
+      body.vel.y = 6.4;
+      this.audio.hop();
+    }
+    this.jumpLatch = jump;
     runtime.root.rotation.y = this.playerYaw;
+  }
+
+  private stepEmitters(dt: number) {
+    for (const runtime of this.runtimes.values()) {
+      if (runtime.spray) stepEmitter(runtime.spray, dt, this.animTime);
+    }
+  }
+
+  private scanTriggers() {
+    if (!this.playerId) return;
+    const player = this.runtimes.get(this.playerId);
+    if (!player) return;
+    const px = player.root.position.x;
+    const py = player.root.position.y + 0.9;
+    const pz = player.root.position.z;
+    for (const runtime of this.runtimes.values()) {
+      const entity = runtime.root.userData.entity as EntityData | undefined;
+      const trigger = entity ? findComponent(entity, "trigger") : undefined;
+      if (!trigger || !entity) continue;
+      const dx = Math.abs(px - runtime.root.position.x);
+      const dy = Math.abs(py - runtime.root.position.y);
+      const dz = Math.abs(pz - runtime.root.position.z);
+      const inside = dx <= trigger.halfExtents.x && dy <= trigger.halfExtents.y && dz <= trigger.halfExtents.z;
+      if (!inside) {
+        runtime.insideTrigger = false;
+        if (!trigger.once) runtime.triggerSpent = false;
+        continue;
+      }
+      if (runtime.insideTrigger || runtime.triggerSpent) continue;
+      runtime.insideTrigger = true;
+      runtime.triggerSpent = true;
+      const message = trigger.message || entity.name;
+      this.hooks.onLog("info", message);
+      this.hooks.onCue?.(message);
+      this.audio.chime();
+    }
   }
 
   private updateChase(dt: number) {
@@ -1017,6 +1083,8 @@ export class HelixEngine {
       runtime.consumed = false;
       runtime.opened = false;
       runtime.chainNoted = false;
+      runtime.insideTrigger = false;
+      runtime.triggerSpent = false;
       runtime.baseY = undefined;
       if (runtime.script?.behavior === "custom") {
         try {
@@ -1136,8 +1204,11 @@ export class HelixEngine {
         consumed: false,
         opened: false,
         chainNoted: false,
+        insideTrigger: false,
+        triggerSpent: false,
         loadToken: 0,
         mixer: null,
+        spray: null,
       };
       this.runtimes.set(entity.id, runtime);
     }
@@ -1241,6 +1312,15 @@ export class HelixEngine {
       runtime.root.add(mesh);
       runtime.disposables.push(material);
     }
+    const emitter = findComponent(entity, "emitter");
+    const trigger = findComponent(entity, "trigger");
+    if (emitter) {
+      const spray = mountEmitter(emitter.kind, emitter.color, emitter.rate, emitter.size);
+      spray.points.position.y = 0.7;
+      runtime.spray = spray;
+      runtime.root.add(spray.points);
+      runtime.disposables.push(spray.points.geometry, spray.points.material as THREE.Material);
+    }
     if (chain && (chain.role === "collectible" || chain.role === "currency")) {
       const geo = new THREE.OctahedronGeometry(0.12);
       const material = new THREE.MeshStandardMaterial({
@@ -1262,7 +1342,17 @@ export class HelixEngine {
       cam.userData.entityId = entity.id;
       runtime.root.add(cam);
     }
-    if (!meshComponent && !character) {
+    if (trigger) {
+      const box = new THREE.Mesh(
+        new THREE.BoxGeometry(trigger.halfExtents.x * 2, trigger.halfExtents.y * 2, trigger.halfExtents.z * 2),
+        new THREE.MeshBasicMaterial({ color: "#d4c4ff", wireframe: true, transparent: true, opacity: 0.9 }),
+      );
+      box.userData.entityId = entity.id;
+      box.visible = this.mode === "edit";
+      runtime.proxy = box;
+      runtime.root.add(box);
+      runtime.disposables.push(box.geometry, box.material);
+    } else if (!meshComponent && !character) {
       const proxy = new THREE.Mesh(
         light ? new THREE.OctahedronGeometry(0.18) : new THREE.BoxGeometry(0.22, 0.16, 0.28),
         new THREE.MeshBasicMaterial({ color: light ? light.color : "#e8a54b" }),
@@ -1433,6 +1523,7 @@ export class HelixEngine {
     runtime.proxy = null;
     runtime.rig = null;
     runtime.gem = null;
+    runtime.spray = null;
     for (const child of [...runtime.root.children]) {
       runtime.root.remove(child);
     }

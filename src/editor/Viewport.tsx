@@ -13,6 +13,7 @@ export function Viewport() {
   const engineRef = useRef<HelixEngine | null>(null);
   const [stats, setStats] = useState<EngineStats>(EMPTY_STATS);
   const [over, setOver] = useState(false);
+  const [cue, setCue] = useState("");
   const mode = useEditor((state) => state.mode);
   const paused = useEditor((state) => state.paused);
   const sceneName = useEditor((state) => state.doc.name);
@@ -34,6 +35,7 @@ export function Viewport() {
       },
       onSelect: (id) => useEditor.getState().select(id),
       onStats: setStats,
+      onCue: (text) => setCue(text),
       holdsToken: (query) => useWallet.getState().holds(query),
       onChain: (event) => {
         const editor = useEditor.getState();
@@ -154,6 +156,14 @@ export function Viewport() {
       }}
     >
       <canvas ref={canvasRef} className="block h-full w-full" />
+      {mode === "play" ? (
+        <div className="pointer-events-none absolute inset-x-0 bottom-3 z-10 flex justify-center px-3">
+          <div className="max-w-md rounded-md border border-line bg-surface/90 px-3 py-2 text-center text-xs text-fg">
+            <div>W drive · A left · D right · Space jump</div>
+            {cue ? <div className="mt-1 text-accent">{cue}</div> : null}
+          </div>
+        </div>
+      ) : null}
       {over && mode === "edit" ? (
         <div className="pointer-events-none absolute inset-3 grid place-items-center rounded-md border border-accent bg-bg/70 text-sm text-fg">
           Drop on the floor

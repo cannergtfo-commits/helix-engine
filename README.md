@@ -1,16 +1,16 @@
 # Helix
 
-Helix is a browser game engine: a scene editor, a WebGL renderer, a component model, and a playable runtime. Scenes are JSON. The same document you edit is the document you simulate.
+Helix is a 3D game engine that runs in the browser: a scene editor, a WebGL renderer, particles, triggers, a sky, sound, physics, and a playable runtime. Scenes are JSON. The same document you edit is the document you simulate.
 
 [Download the 10-second demo (MP4, 1280×720)](https://github.com/cannergtfo-commits/helix-engine/raw/main/demo/helix-demo.mp4) — the moon court in the rain. The file plays in a browser and downloads directly.
 
-One hundred and thirty-five texture packets ship with the studio, including a dark-fantasy elven set: moonstone, nightwood, dusk velvet, silverleaf, and violet glass. `helix.textures()` lists them. The Moon court places five elves — Vaelith, Seryne, Ilyra, Nimrael, and Orinel — in front of a moonstone hall. Rain, from the toolbar or `helix.weather("rain")`, puts a storm on the open scene: streaks, a wet lot, fog, and lightning.
+One hundred and thirty-five texture packets ship with the studio, including a dark-fantasy elven set: moonstone, nightwood, dusk velvet, silverleaf, and violet glass. `helix.textures()` lists them. The Moon court places five elves — Vaelith, Seryne, Ilyra, Nimrael, and Orinel — in front of a moonstone hall. Rain, from the toolbar or `helix.weather("rain")`, puts a storm on the open scene: streaks, a wet lot, fog, and lightning. Add a brazier for fire, sparks, mist, or magic, and a trigger volume that speaks when the player walks through it.
 
 ## Editor
 
 Open the app and use the courtyard demo.
 
-- **Play** simulates. **Stop** restores the scene to the moment you pressed Play.
+- **Play** simulates. **Stop** restores the scene to the moment you pressed Play. **Space** jumps while playing.
 - **W** drives the rover, **A** turns left, **D** turns right, **S** brakes. Heading is rotation Y. `0` faces world −Z.
 - **W / E / R** switch move, rotate, and scale while editing. **F** frames the selection.
 - Add a mesh, a collider, and a rigidbody to make a dynamic object.
